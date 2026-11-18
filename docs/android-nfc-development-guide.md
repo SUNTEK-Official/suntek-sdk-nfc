@@ -2,11 +2,17 @@
 
 The library 'libcomPro.so' should be added to your jniLibs folder, if this folder is not exist, create it.
 
+![SUNTEK Android NFC Development Guide - nfc-dev-image1.png](./images/nfc-dev-image1.png)
+
 The package file lc.jar and jRF.jar which located in libs shall be added to your app folder.
+
+![SUNTEK Android NFC Development Guide - nfc-dev-image2.png](./images/nfc-dev-image2.png)
 
 ---
 
 # How to Test the Android NFC Demo
+
+![How to Test the Android NFC Demo - nfc-test-image1.png](./images/nfc-test-image1.png)
 
 Open the App, and the interface will be as shown above;
 
