@@ -1,0 +1,139 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+<h1>Click Button 'Unlink' Before Leave This Page!!!</h1>
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+ var isComOpen=false;
+ var icdev= -1;
+ var gl_fFailedShow = 0;
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+    Connect();
+});
+
+
+//Link Reader
+function Connect()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+            obj.initialcom(100, 115200).then((rData) => {
+
+			    var opst;
+			    var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+				    var hdev = parseInt(rData.RePara_Str);
+				    if(hdev != -1)
+				    {
+					    icdev= hdev;
+					
+					    if(isComOpen == true)
+						    return;
+
+					    isComOpen=true;             //Set reader link status
+					    gl_fFailedShow = 0; //reset the flag whether show fail message or not
+					
+					    msg.value =msg.value+"Link reader ok\n";
+
+					    MonitorData();
+				    }
+				    else
+				    {
+					    if(0 == gl_fFailedShow)
+					    {
+					      gl_fFailedShow = 1;//set the flag whether show fail message or not
+					      msg.value = "Link reader error\n";
+					    }
+					    //isComOpen=false;           //Set reader link failed status
+					    setInterval("Connect()", 3000);
+				    }
+			    }
+			    else
+				    msg.value = "Object load error\n";
+
+            }).catch((error) => {
+                console.log('initialcom catch fail->' + error);
+            });
+	    }
+	}catch(e){alert(e.message);}
+}
+
+// Auto get data
+function MonitorData()
+{
+    if(true == isComOpen)
+    {
+        obj.getAutoReturnData(icdev,
+        0//0-Hexadecimal, 1->ASC
+        ).then((rData) => {
+			var strcard= rData.RePara_Str;
+			if(strcard!="")
+			{
+				hasCard =true;
+				msg.value=msg.value+"Rev Data: "+strcard+"\n";
+			}
+			else
+			{
+				if(0 == gl_fFailedShow)
+				{
+				  gl_fFailedShow = 1;//set the flag whether show fail message or not
+				  msg.value=msg.value+"Found no card, put a card on the RF area now\n";
+				}
+			}
+			
+			MonitorData();//Do get data again
+
+        }).catch((error) => {
+            console.log('getAutoReturnData catch fail->' + error);
+        });
+    }
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"reader closed\n"
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+<p align="center">&nbsp;<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()" style="width:100px;height:60px"></p> 
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

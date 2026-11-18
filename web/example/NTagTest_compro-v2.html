@@ -1,0 +1,202 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+ var hasCard =false;
+ var isComOpen=false;
+ var icdev= -1;
+ var gl_BinPage = 8;
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+//Link Reader
+function Connect()
+{
+	try{
+		if(isComOpen==false)          //if reader link failed
+		{
+            if(obj != null)
+            {
+                obj.initialcom(100, 115200).then((rData) => {
+
+                    icdev =parseInt(rData.RePara_Str) 
+
+                    if(icdev != -1)
+                    {
+                        msg.value =msg.value+"Link reader ok\n";
+
+                        isComOpen = true;
+
+                        //Do a beep
+                        obj.beep(icdev, 10).then((rData) => {
+
+                        }).catch((error) => {
+                            console.log('beep catch fail->' + error);
+                        });
+                    }
+                    else
+                    {
+					    msg.value = "Link reader error\n";
+					    isComOpen=false;           //Set reader link failed status
+                    }
+
+                }).catch((error) => {
+                    console.log('initialcom catch fail->' + error);
+                });
+            }
+		}
+	}catch(e){alert(e.message);}
+
+}
+
+// Find card
+function Findcard()
+{
+    obj.findCard_ex(icdev,1, 0x40).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+//Read card
+function Read()
+{
+    obj.read(icdev, gl_BinPage).then((rData) => {
+        var data =  rData.RePara_Str;
+		if(data != "")
+		{
+			msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Read error\n";
+		}
+    }).catch((error) => {
+        console.log('read catch fail->' + error);
+    });
+}
+
+//Write card
+function Write()
+{
+    obj.write(icdev, gl_BinPage, "11223344000000000000000000000000").then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write card ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write card error\n";
+		}
+    }).catch((error) => {
+        console.log('write catch fail->' + error);
+    });
+}
+
+//Set or change password
+function SetPassword()
+{
+	//NOTE: The password should be a string, length 4 if asc，length 8 if hex type
+	//Example: "1234" equal "31323334"
+
+    //NTAG213, read&write protect, protect start page-4, No limit error verify time, not lock configure
+    obj.tagSetPwd(icdev, 1, "1234", 2, 4,  0, 0).then((rData) => {
+	    var iRet = rData.RePara_Int;   
+	    if(iRet == 0)
+	    {
+		    msg.value = msg.value + "Set password ok\n";
+	    }
+	    else
+	    {
+		    msg.value = msg.value + "Set password error\n";
+	    }
+    }).catch((error) => {
+        console.log('tagSetPwd catch fail->' + error);
+    });
+}
+//Authenticate password
+function AuthenPassword()
+{
+	//NOTE: The password should be a string, length 4 if asc，length 8 if hex type
+	//Example: "1234" equal "31323334"
+
+    obj.tagAuthenPwd(icdev, "31323334").then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Authen password ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Authen password error\n";
+		}
+    }).catch((error) => {
+        console.log('tagAuthenPwd catch fail->' + error);
+    });
+
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+<p align="center">&nbsp; <input type="button" value="  Link  " name="btnConnect" onclick="Connect()">&nbsp;  
+<input type="button" value=" FindCard " name="btn_FindCard" onclick="Findcard()">&nbsp;
+<input type="button" value="  ReadCard  " name="btn_Read" onclick="Read()">&nbsp; 
+<input type="button" value=" WriteCard " name="btn_Write" onclick="Write()">&nbsp;
+<input type="button" value=" Set|Change password " name="btn_setPwd" onclick="SetPassword()">&nbsp;
+<input type="button" value=" Authen password" name="btn_authen" onclick="AuthenPassword()">&nbsp;
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()"></p> 
+
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

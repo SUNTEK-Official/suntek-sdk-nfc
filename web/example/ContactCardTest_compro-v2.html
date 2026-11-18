@@ -1,0 +1,480 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+ var isComOpen=false; //A flag indicate whether the reader is open or not
+ var icdev= -1; //The handle value which band with reader
+ var gl_slot = 0; //The slot the card insert. 0-Main slot, 1-PSAM1, 2-PSAM2...
+ var gl_romRWLen = 10; //The length of memory in reader for Reading/Writting
+ var gl_romRWAddr = 0; //The address of memory in reader for Reading/Writting
+
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function (event) {
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+//Link Reader
+function Connect()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+            if(obj != null)
+            {
+                obj.initialcom(100, 115200).then((rData) => {
+
+                    icdev =parseInt(rData.RePara_Str) 
+
+                    if(icdev != -1)
+                    {
+                        msg.value =msg.value+"Link reader ok\n";
+
+                        isComOpen = true;
+
+                        //Do a beep
+                        obj.beep(icdev, 10).then((rData) => {
+
+                        }).catch((error) => {
+                            console.log('beep catch fail->' + error);
+                        });
+                    }
+                    else
+                    {
+					    msg.value = "Link reader error\n";
+					    isComOpen=false;           //Set reader link failed status
+                    }
+
+                }).catch((error) => {
+                    console.log('initialcom catch fail->' + error);
+                });
+            }
+	    }
+	}catch(e){alert(e.message);}
+}
+function GetVer()
+{
+    obj.getHW(icdev).then((rData) => {
+        msg.value =msg.value+"Version:" + rData.RePara_Str + "\n";
+    }).catch((error) => {
+        console.log('getHW catch fail->' + error);
+    });
+}
+function SelCard()
+{
+	var cardType = document.getElementsByName("flexRadioDefault");
+    if(cardType[0].checked){
+        
+        obj.iccSelCardType(icdev, gl_slot, 
+        0x03//4442
+        ).then((rData) => {
+			var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                msg.value=msg.value+"Sel card type 4442 ok \n";
+			}
+			else msg.value=msg.value+"Sel card type error \n";
+        }).catch((error) => {
+            console.log('iccSelCardType catch fail->' + error);
+        });
+    }else if(cardType[1].checked){
+        obj.iccSelCardType(icdev, gl_slot, 
+        0x04//4428
+        ).then((rData) => {
+			var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                msg.value=msg.value+"Sel card type 4428 ok \n";
+			}
+			else msg.value=msg.value+"Sel card type error \n";
+        }).catch((error) => {
+            console.log('iccSelCardType catch fail->' + error);
+        });
+    }else if(cardType[2].checked){
+        obj.iccSelCardType(icdev, gl_slot, 
+        0x0C//CPU card
+        ).then((rData) => {
+			var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                msg.value=msg.value+"Sel card type iso7816 card ok \n";
+			}
+			else msg.value=msg.value+"Sel card type error \n";
+        }).catch((error) => {
+            console.log('iccSelCardType catch fail->' + error);
+        });
+    }else if(cardType[3].checked){
+        obj.iccSelCardType(icdev, gl_slot, 
+        0x01//24CXX card
+        ).then((rData) => {
+			var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                msg.value=msg.value+"Sel card type 24CXX card ok \n";
+			}
+			else msg.value=msg.value+"Sel card type error \n";
+        }).catch((error) => {
+            console.log('iccSelCardType catch fail->' + error);
+        });
+    }
+}
+
+// Find card
+function Findcard()
+{
+    
+    obj.iccGetCardState(icdev,gl_slot).then((rData) => {
+		var rel = rData.RePara_Int;
+		if(0 == rel)
+		{
+            var cardState = parseInt(rData.RePara_Str);
+
+            msg.value=msg.value+"Card state: "+ cardState +"\n";
+			if(cardState != 0)
+			{
+                msg.value=msg.value+"Found card in the slot\n";
+			}
+			else
+			{
+				msg.value=msg.value+"Found no card \n";
+			}
+        }
+    }).catch((error) => {
+        console.log('iccGetCardState catch fail->' + error);
+    });
+}
+//Read error counter value 
+function ReadErrorCounter()
+{
+    obj.iccReadErrorCounter(icdev,gl_slot).then((rData) => {
+		var rel = rData.RePara_Int;
+		if(0 == rel)
+		{
+            var error_counter = parseInt(rData.RePara_Str);
+
+            msg.value=msg.value+"Error Counter Value: "+ error_counter +"\n";
+        }
+    }).catch((error) => {
+        console.log('iccReadErrorCounter catch fail->' + error);
+    });
+}
+
+//Verify card password
+function VerifyPass()
+{
+    var txt_pass = document.getElementById("txt_pass");
+    var strPass= txt_pass.value;
+
+	
+    obj.iccVerifyUserPass(icdev, gl_slot, strPass).then((rData) => {
+		var rel = rData.RePara_Int;
+		if(0 == rel)
+		{
+            msg.value=msg.value+"Verify password ok \n";
+		}
+		else msg.value=msg.value+"Verify password error \n";
+    }).catch((error) => {
+        console.log('iccVerifyUserPass catch fail->' + error);
+    });
+}
+
+//Read card
+function Read()
+{
+    var txt_rwAddr = document.getElementById("txt_rwAddr");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_rwLen = document.getElementById("txt_rwLen");
+    var rwLen = parseInt(txt_rwLen.value);
+
+    obj.iccReadMem(icdev,gl_slot, rwAddr, rwLen).then((rData) => {
+		var data =  rData.RePara_Str;     
+		if(data != "")
+		{
+			msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+            var ascStr = Str2Hex(data);
+            msg.value = msg.value + "String format:" + ascStr + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Read error\n";
+		}
+    }).catch((error) => {
+        console.log('iccReadMem catch fail->' + error);
+    });
+
+}
+
+//Write card
+function Write()
+{
+    var txt_rwAddr = document.getElementById("txt_rwAddr");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_dataForW = document.getElementById("txt_dataForW");
+    var strData = txt_dataForW.value;
+    var strHex;
+
+    strHex = Hex2Str(strData);
+	
+    obj.iccWriteMem(icdev,gl_slot, rwAddr, strHex).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write card ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write card error\n";
+		}
+    }).catch((error) => {
+        console.log('iccWriteMem catch fail->' + error);
+    });
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+function Changekey()
+{
+    var txt_pass = document.getElementById("txt_pass");
+    var strPass= txt_pass.value;
+
+	
+    obj.iccUpdateUserPass(icdev,gl_slot,strPass).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Update password ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Update password error\n";
+		}
+    }).catch((error) => {
+        console.log('iccUpdateUserPass catch fail->' + error);
+    });
+}
+
+function ATR()
+{
+    obj.iccGetATR(icdev,gl_slot).then((rData) => {
+	    var iRet = rData.RePara_Str;   
+	    if(iRet != "")
+	    {
+		    msg.value = msg.value + "Cpu card reset:" + iRet + "\n";
+	    }
+	    else
+	    {
+		    msg.value = msg.value + "Cpu card error\n";
+	    }
+    }).catch((error) => {
+        console.log('iccGetATR catch fail->' + error);
+    });
+}
+
+function APDU()
+{
+    var txt_command = document.getElementById("txt_command");
+    var strCmd = txt_command.value;
+
+    obj.iccAPDU(icdev,gl_slot, strCmd).then((rData) => {
+		var iRet = rData.RePara_Str;   
+		if(iRet != "")
+		{
+			msg.value = msg.value + "Apdu return:" + iRet + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Apdu error\n";
+		}
+    }).catch((error) => {
+        console.log('iccAPDU catch fail->' + error);
+    });
+}
+
+function SetBaud()
+{
+	var cpuCardBaud = document.getElementsByName("flexRadioBaud");
+    if(cpuCardBaud[0].checked){
+        //9600
+        obj.iccSetBaud(icdev, gl_slot, 9600).then((rData) => {
+			var iRet = rData.RePara_Int;   
+			if(iRet == 0)
+			{
+				msg.value = msg.value + "Set baud ok\n";
+			}
+			else
+			{
+				msg.value = msg.value + "Set baud  error\n";
+			}
+        }).catch((error) => {
+            console.log('iccSetBaud catch fail->' + error);
+        });
+    }else if(cpuCardBaud[1].checked){
+        //38400
+        obj.iccSetBaud(icdev, gl_slot, 38400).then((rData) => {
+			var iRet = rData.RePara_Int;   
+			if(iRet == 0)
+			{
+				msg.value = msg.value + "Set baud ok\n";
+			}
+			else
+			{
+				msg.value = msg.value + "Set baud  error\n";
+			}
+        }).catch((error) => {
+            console.log('iccSetBaud catch fail->' + error);
+        });
+    }
+}
+
+function PPS()
+{
+    obj.iccPPS(icdev, gl_slot, "").then((rData) => { 
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Do a PPS ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Do a PPS error\n";
+		}
+    }).catch((error) => {
+        console.log('iccPPS catch fail->' + error);
+    });
+}
+
+function ClearMessage()
+{
+	msg.value = "";
+}
+
+//"test1" -> "7465737431"
+function Hex2Str(ascStr)
+{
+    if(ascStr=="")
+        return "";
+    var hexCharCode=[];
+    //hexCharCode.push("0x");
+    for(var i = 0; i< ascStr.length; i++){
+        hexCharCode.push((ascStr.charCodeAt(i)).toString(16));
+    }
+    return hexCharCode.join("");
+}
+
+//"313233"->"123"
+function Str2Hex(strHex)
+{
+   var trimedStr = strHex.trim();
+   var rawStr = trimedStr.substr(0, 2).toLowerCase() == "0x"?trimedStr.substr(2):trimedStr;
+   var len = rawStr.length;
+   if(len % 2 != 0){
+    //Encount invalid data
+    return "";
+   }
+   var curCharCode;
+   var resultStr = [];
+   for(var i =0; i< len; i = i +2 ){
+    curCharCode = parseInt(rawStr.substr(i, 2), 16);
+    resultStr.push(String.fromCharCode(curCharCode));
+   }
+   return resultStr.join("");
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+
+<p align="center">
+<input type="button" value="  Clear Message  " name="btnClearMessage" onclick="ClearMessage()">&nbsp;  
+</p> 
+
+<p align="center">
+<input type="button" value="  Link  " name="btnConnect" onclick="Connect()">&nbsp;  
+<input type="button" value=" GetVer " name="btn_GetVer" onclick="GetVer()">&nbsp;
+<input type="button" value=" Card-State " name="btn_FindCard" onclick="Findcard()">&nbsp;
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()">
+</p> 
+
+<p align="center">
+<input type="radio" name="flexRadioDefault" value="Card_4442" />
+<label>4442</label>
+<input type="radio" name="flexRadioDefault" value="Card_4428" />
+<lable>4428</lable>
+<input type="radio" name="flexRadioDefault" value="Card_CPU" />
+<lable>CPU Card</lable>
+<input type="radio" name="flexRadioDefault" value="24CXX" />
+<lable>24CXX</lable>
+<input type="button" value="Select Card" name="btnSelCard" onclick="SelCard()">&nbsp;
+</p>
+
+<p align="center">
+<input type="text" id="txt_pass" value= "FFFFFF"/>
+<input type="button" value="Verify Password" name="btnVerifyPass" onclick="VerifyPass()">&nbsp;
+<input type="button" value=" UpdateKey "name="btn_changekey" onclick="Changekey()">&nbsp;
+<input type="button" value="  Read-Error-Counter  " name="btn_ReadErrorCounter" onclick="ReadErrorCounter()">&nbsp; 
+</p>
+
+<p align="center">
+<label>Address</label>
+<input type="text" id="txt_rwAddr" value= "32"/>
+<label>Length</label>
+<input type="text" id="txt_rwLen" value="16" />
+<label>Data for Write</label>
+<input type="text" id="txt_dataForW" value= "123test"/>
+<input type="button" value="  ReadCard  " name="btn_Read" onclick="Read()">&nbsp; 
+<input type="button" value=" WriteCard " name="btn_Write" onclick="Write()">&nbsp;
+</p>
+
+<p align="center">
+<label>APDU Command</label>
+<input type="text" id="txt_command" value= "0084000008"/>
+<input type="button" value=" GetATR  " name="btn_ATR" onclick="ATR()">&nbsp; 
+<input type="button" value=" APDU " name="btn_APDU" onclick="APDU()">&nbsp;
+<input type="radio" name="flexRadioBaud" value="Baud_9600" />
+<label>9600</label>
+<input type="radio" name="flexRadioBaud" value="Baud_38400" />
+<lable>38400</lable>
+<input type="button" value=" SetBaud " name="btn_APDU" onclick="SetBaud()">&nbsp;
+<input type="button" value=" PPS " name="btn_PPS" onclick="PPS()">&nbsp;
+</p>
+
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

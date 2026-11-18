@@ -1,0 +1,8 @@
+
+GCC:=aarch64-linux-gnu-gcc
+SONAME:=./lib/libcomPro.so
+SRC:=../../*.c
+all:
+	$(GCC) -fPIC -o demo -g $(SRC) $(SONAME)
+clean:
+	rm -rf demo *~

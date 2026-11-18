@@ -1,0 +1,229 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+ var isComOpen=false;
+ var icdev= -1;
+ var gl_uid = "";
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function (event) {
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+//Link Reader
+function Connect()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+            if(obj != null)
+            {
+                obj.initialcom(100, 115200).then((rData) => {
+
+                    icdev =parseInt(rData.RePara_Str) 
+
+                    if(icdev != -1)
+                    {
+                        msg.value =msg.value+"Link reader ok\n";
+
+                        isComOpen = true;
+
+                        //Do a beep
+                        obj.beep(icdev, 10).then((rData) => {
+
+                        }).catch((error) => {
+                            console.log('beep catch fail->' + error);
+                        });
+                    }
+                    else
+                    {
+					    msg.value = "Link reader error\n";
+					    isComOpen=false;           //Set reader link failed status
+                    }
+
+                }).catch((error) => {
+                    console.log('initialcom catch fail->' + error);
+                });
+            }
+	    }
+	}catch(e){alert(e.message);}
+}
+
+// Find card
+function FindUHF()
+{
+    obj.uhf_inventory(icdev, 
+    300 //Scan 300 ms
+    ).then((rData) => {
+	    var strcard= rData.RePara_Str;
+	    if(strcard!="")
+	    {
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		    gl_uid = strcard;
+	    }
+	    else
+	    {
+		    msg.value=msg.value+"Found no card \n";
+	    }
+    }).catch((error) => {
+        console.log('uhf_inventory catch fail->' + error);
+    });
+}
+
+// write tag
+function WriteTag()
+{
+    var txt_pwd = document.getElementById("Text_Pwd");
+    var strPwd = txt_pwd.value;
+    var radio_tagBank = document.getElementsByName("flexRadioDefault");
+    var tagBank;
+    var txt_rwAddr = document.getElementById("txt_rwAddr");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_rwLen = document.getElementById("txt_rwLen");
+    var rwLen = parseInt(txt_rwLen.value);
+    var txt_dataForW = document.getElementById("txt_dataForW");
+    var strData = txt_dataForW.value;
+
+    if(radio_tagBank[0].checked)tagBank = 0x01;
+    else if(radio_tagBank[1].checked)tagBank = 0x02;
+    else if(radio_tagBank[2].checked)tagBank = 0x03;
+    else if(radio_tagBank[3].checked)tagBank = 0x00;
+
+    obj.uhf_writeTag(icdev, 
+    tagBank,
+    rwAddr,
+    rwLen,
+    strPwd,
+    strData
+    ).then((rData) => {
+	    var iRet = rData.RePara_Int;   
+	    if(iRet == 0)
+		{
+			msg.value = msg.value + "Write data ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write data error\n";
+		}
+    }).catch((error) => {
+        console.log('uhf_writeTag catch fail->' + error);
+    });
+}
+
+// read tag
+function ReadTag()
+{
+    var txt_pwd = document.getElementById("Text_Pwd");
+    var strPwd = txt_pwd.value;
+    var radio_tagBank = document.getElementsByName("flexRadioDefault");
+    var tagBank;
+    var txt_rwAddr = document.getElementById("txt_rwAddr");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_rwLen = document.getElementById("txt_rwLen");
+    var rwLen = parseInt(txt_rwLen.value);
+    var txt_data = document.getElementById("txt_dataForW");
+
+    if(radio_tagBank[0].checked)tagBank = 0x01;
+    else if(radio_tagBank[1].checked)tagBank = 0x02;
+    else if(radio_tagBank[2].checked)tagBank = 0x03;
+    else if(radio_tagBank[3].checked)tagBank = 0x00;
+
+    obj.uhf_readTag(icdev, 
+    tagBank,
+    rwAddr,
+    rwLen,
+    strPwd
+    ).then((rData) => {
+	    var strData= rData.RePara_Str;
+	    if(strData!="")
+	    {
+            msg.value=msg.value+"Read data ok\n";
+            txt_data.value = strData;
+	    }
+	    else
+	    {
+		    msg.value=msg.value+"Read fail, code:"+rData.RePara_Int+" \n";
+	    }
+    }).catch((error) => {
+        console.log('uhf_readTag catch fail->' + error);
+    });
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+
+<p align="center">&nbsp; <input type="button" value="  Link  " name="btnConnect" onclick="Connect()">&nbsp;  
+<input type="button" value=" Find-UHF " name="btn_FindUHF" onclick="FindUHF()">&nbsp;
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()">
+</p> 
+
+<p align="center">
+<label>Password</label>
+<input type="text" id="Text_Pwd" value= "00000000" size="8" />
+</p>
+
+<p align="center">
+<input type="radio" name="flexRadioDefault" value="Bank_EPC" checked/>
+<label>EPC</label>
+<input type="radio" name="flexRadioDefault" value="Bank_TID" />
+<lable>TID</lable>
+<input type="radio" name="flexRadioDefault" value="Bank_User" />
+<lable>User</lable>
+<input type="radio" name="flexRadioDefault" value="Bank_Reserved" />
+<lable>Reserved</lable>
+
+<label>Address</label>
+<input type="text" id="txt_rwAddr" value= "2" size="2" />
+<label>Length</label>
+<input type="text" id="txt_rwLen" value="6" size="2"/>
+<label>Data</label>
+<input type="text" id="txt_dataForW" value= "" size="100"/>
+
+<input type="button" value="ReadTag" name="btnReadTag" onclick="ReadTag()">&nbsp;
+<input type="button" value="WriteTag" name="btnWriteTag" onclick="WriteTag()">&nbsp;
+</p>
+
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

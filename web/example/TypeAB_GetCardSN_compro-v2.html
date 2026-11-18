@@ -1,0 +1,200 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+ var hasCard =false;
+ var isComOpen=false;
+ var icdev= -1;
+ var gl_fFailedShow = 0;
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+
+//Link Reader
+function Test()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+                if(obj != null)
+                {
+                    obj.initialcom(100, 115200).then((rData) => {
+
+			            var rel = rData.RePara_Int;
+			            if(0 == rel)
+			            {
+				            var hdev = parseInt(rData.RePara_Str);
+				            if(hdev != -1)
+				            {
+					            icdev= hdev;
+					
+					            if(isComOpen == true)
+						            return;
+						
+					            isComOpen=true;             //Set reader link status
+					            gl_fFailedShow = 0; //reset the flag whether show fail message or not
+					
+					            msg.value =msg.value+"Link reader ok\n";
+				
+			
+					            FindcardA();
+				            }
+				            else
+				            {
+					            gl_fFailedShow = 1;//set the flag whether show fail message or not
+					            msg.value = "Link reader error\n";
+				            }
+			            }
+			            else
+				            msg.value = "initialcom error\n";
+
+                    }).catch((error) => {
+                        console.log('initialcom catch fail->' + error);
+                    });
+                }
+	    }
+	}catch(e){alert(e.message);}
+
+}
+
+// Find card
+function FindcardA()
+{
+    obj.findCard_ex(icdev,1, 0x40).then((rData) => {
+		var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{//Find TypeA Card 
+			hasCard =true;
+			msg.value=msg.value+"Card ID: "+strcard+"\n";
+
+            obj.beep(icdev, 10).then((rData) => {
+
+			    Disconnect();//close port and exit
+      
+            }).catch((error) => {
+                console.log('exit catch fail->' + error);
+            });
+
+		}
+		else
+		{//No TypeA card, try to config as typeB
+			
+			hasCard =false;        //Set no card status
+			
+			FindcardB();
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+function FindcardB()
+{
+    obj.request_b(icdev,
+        0,//find mode, 0-single mode, 1-all mode
+        0,//application id, alway set to 0
+        0)//channal number, set to 0
+        .then((rData) => {
+
+	    var strcard= rData.RePara_Str;
+			
+	    if(strcard!="")
+	    {
+		    hasCard =true;
+		    msg.value=msg.value+"PUPI(4)+APP(4)+PROTOCOL(3): "+strcard+"\n";
+        
+
+            obj.beep(icdev, 10).then((rData) => {
+
+			    GetCardID();
+      
+            }).catch((error) => {
+                console.log('exit catch fail->' + error);
+            });
+	    }
+	    else
+	    {
+		    if(0 == gl_fFailedShow)
+		    {
+			    gl_fFailedShow = 1;//set the flag whether show fail message or not
+			    msg.value=msg.value+"Found no card, put a card on the RF area now\n";
+		    }
+				
+		    hasCard =false;        //Set no card status
+				
+		    Disconnect();//close port and exit
+	    }
+    }).catch((error) => {
+        console.log('request_b catch fail->' + error);
+    });
+}
+
+function GetCardID()
+{
+  var atrCmd="0036000008";
+  var cmdLen = 5;
+
+    obj.CommandLink_at(icdev,cmdLen,atrCmd).then((rData) => {
+	    var strRedata = rData.RePara_Str;
+		  
+	    if(strRedata != "")
+	    {//apdu command ok
+	        msg.value=msg.value+"UID: "+strRedata+"\n";
+	    }
+	    //else msg.value= msg.value+"Apdu failed \n";
+	    Disconnect();//close port and exit
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+  
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+
+</script>
+ 
+<br>
+<form name="formname">
+<p align="center">&nbsp; <input type="button" value="  Test  " name="btnTest" onclick="Test()"> </p> 
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

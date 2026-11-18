@@ -1,0 +1,9 @@
+
+#GCC:= arm-none-linux-gnueabi-gcc
+GCC:= gcc
+LIB_DIR:=./x64/
+SRC:=*.c
+all:
+	$(GCC) -fPIC -o demo -g $(SRC) -L $(LIB_DIR) -lcomPro -lpthread
+clean:
+	rm -rf demo *~

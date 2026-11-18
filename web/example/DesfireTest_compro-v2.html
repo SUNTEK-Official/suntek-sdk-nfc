@@ -1,0 +1,780 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Desfire Card Example In Web </h1>
+</center>
+ 
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script>
+
+ var isComOpen=false; //A flag indicate whether the reader is open or not
+ var icdev= -1; //The handle value which band with reader
+ var gl_sessionKey=""; //Generate after verify password
+
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function (event) {
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+//Link Reader
+function Connect()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+            if(obj != null)
+            {
+                obj.initialcom(100, 115200).then((rData) => {
+
+                    icdev =parseInt(rData.RePara_Str) 
+
+                    if(icdev != -1)
+                    {
+                        msg.value =msg.value+"Link reader ok\n";
+
+                        isComOpen = true;
+
+                        //Do a beep
+                        obj.beep(icdev, 10).then((rData) => {
+
+                        }).catch((error) => {
+                            console.log('beep catch fail->' + error);
+                        });
+                    }
+                    else
+                    {
+					    msg.value = "Link reader error\n";
+					    isComOpen=false;           //Set reader link failed status
+                    }
+
+                }).catch((error) => {
+                    console.log('initialcom catch fail->' + error);
+                });
+            }
+	    }
+	}catch(e){alert(e.message);}
+}
+
+// Find card
+function Findcard()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+             msg.value=msg.value+"Card ID: "+strcard+"\n";
+
+            //----------------------------------------------------------- Card ATS (Reset)
+            obj.fcpureset(icdev, 0).then((rData) => {
+            
+            	var iRet = rData.RePara_Str;   
+			    if(iRet != "")
+			    {
+				    //msg.value = msg.value + "Cpu card reset:" + iRet + "\n";
+			    }
+			    else
+			    {
+				    msg.value = msg.value + "Cpu card error\n";
+			    }
+
+            }).catch((error) => {
+            console.log('fcpureset catch fail->' + error);
+            });
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+
+}
+
+function GetAIDs()
+{
+    var AID_list = document.getElementById("AID_list");
+
+    obj.desfire_getAIDs(icdev).then((rData) => {
+		var data =  rData.RePara_Str;     
+		if(data != "")
+		{
+            AID_list.options.length = 0; //Clear items
+			msg.value = msg.value + "Get AID ok, data: \n" + data + "\n";
+
+            var strArr = sliceStringByLength(data, 6);
+            for(var i=0; i < strArr.length; i++)
+            {
+                var option = document.createElement("option");
+                option.value = strArr[i];
+                option.text = strArr[i];
+                AID_list.appendChild(option);
+            }
+            selectAIDclicked();
+		}
+		else
+		{
+			msg.value = msg.value + "Get AID error or no AID\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_getAIDs catch fail->' + error);
+    });
+}
+
+function selectAIDclicked()
+{
+
+    const item = document.getElementById("AID_list").value;
+    if(item != null)
+    {
+        obj.desfire_selectApp(icdev,item).then((rData) => {
+			var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                msg.value=msg.value+"Select AID "+item+" ok \n";
+			}
+			else msg.value=msg.value+"Select AID error \n";
+        }).catch((error) => {
+            console.log('desfire_selectApp catch fail->' + error);
+        });
+    }
+}
+
+function GetFiles()
+{
+    var file_list = document.getElementById("txt_file_list");
+
+    obj.desfire_getFileIDs(icdev).then((rData) => {
+		var data =  rData.RePara_Str;     
+		if(data != "")
+		{
+            var strArr = sliceStringByLength(data, 2);
+			msg.value = msg.value + "Get files ok, data: \n" + data + "\n";
+
+            file_list.value = '';
+            for(var i=0; i < strArr.length; i++)
+            {
+                file_list.value = file_list.value +  strArr[i] + "\n";
+            }
+            
+		}
+		else
+		{
+			msg.value = msg.value + "Get files error, or no files\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_getFileIDs catch fail->' + error);
+    });
+}
+
+// Create gave AID
+function CreateAID()
+{
+    var txt_newAID = document.getElementById("txt_newAID");
+
+    obj.desfire_createApp(icdev,txt_newAID.value,0x0f, 0x0e).then((rData) => {
+		var rel = rData.RePara_Int;
+		if(0 == rel)
+		{
+            msg.value=msg.value+"Create AID ok\n";
+        }
+        else 
+            msg.value=msg.value+"Create AID failed \n";
+
+    }).catch((error) => {
+        console.log('desfire_createApp catch fail->' + error);
+    });
+}
+
+
+//Check file to get profile
+function CheckFile()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+	var radio_fileType = document.getElementsByName("flexRadioDefault");
+    var txt_comSetting = document.getElementById("txt_comSetting");
+    var txt_accessRight = document.getElementById("txt_acessRight");
+    var txt_fileSize = document.getElementById("txt_fileSize");
+    var txt_recordSize = document.getElementById("txt_recordSize");
+    var txt_maxNum = document.getElementById("txt_maxNumber");
+
+    obj.desfire_getFileProper(icdev,iFileID).then((rData) => {
+		var data =  rData.RePara_Str;     
+		if(data != "")
+		{
+			msg.value = msg.value + "Get file's property ok, data: \n" + data + "\n";
+            //Update UI
+            var strArr = sliceStringByLength(data, 2);
+            var fileType = parseInt(strArr[0], 16);
+            var comSet = parseInt(strArr[1], 16);
+            var strAccessRight = strArr[2]+ strArr[3];
+            var fileSize = parseInt(strArr[6]+ strArr[5] +strArr[4] , 16);
+
+            txt_comSetting.value = comSet;
+            txt_accessRight.value = strAccessRight;
+
+            if((fileType == 0) || (fileType == 1)) //Data file
+            {
+                radio_fileType[0].checked = true;
+                txt_fileSize.value = fileSize;
+            }
+            else if(fileType == 2) //Value file
+            {
+                var txt_MinLimit = document.getElementById("txt_MinLimit");
+                var txt_MaxLimit = document.getElementById("txt_MaxLimit");
+                var txt_InitValue = document.getElementById("txt_initalValue");
+                var txt_creditEnable = document.getElementById("txt_enable_credit");
+                var minLimit = parseInt(strArr[7] + strArr[6]+ strArr[5] +strArr[4] , 16);
+                var maxLimit = parseInt(strArr[11] + strArr[10]+ strArr[9] +strArr[8] , 16);
+                var initValue = parseInt(strArr[15] + strArr[14]+ strArr[13] +strArr[12] , 16);
+                var creditEnable = parseInt(strArr[16],16);
+
+                radio_fileType[1].checked = true;
+                txt_MinLimit.value = minLimit;
+                txt_MaxLimit.value = maxLimit;
+                txt_InitValue.value = initValue;
+                txt_creditEnable.value = creditEnable;
+            }
+            else if( (fileType == 3) || (fileType == 4)) //Record file
+            {
+                var maxNum = parseInt(strArr[9]+ strArr[8] +strArr[7] , 16);
+                radio_fileType[2].checked = true;
+                txt_recordSize.value = fileSize;
+                txt_maxNum.value = maxNum;
+
+            }
+		}
+		else
+		{
+			msg.value = msg.value + "Get file's property error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_getFileProper catch fail->' + error);
+    });
+
+}
+
+//Create a new file
+function CreateFile()
+{
+    var radio_fileType = document.getElementsByName("flexRadioDefault");
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_comSetting = document.getElementById("txt_comSetting");
+    var iComSetting = parseInt(txt_comSetting.value);
+    var txt_accessRight = document.getElementById("txt_acessRight");
+    var strAccessRight = txt_accessRight.value;
+    var txt_fileSize = document.getElementById("txt_fileSize");
+    var iFileSize = parseInt(txt_fileSize.value);
+
+    if(radio_fileType[0].checked == true)
+    {
+        obj.desfire_createDataFile(icdev,iFileID, iComSetting, strAccessRight, iFileSize).then((rData) => {
+		    var iRet = rData.RePara_Int;   
+		    if(iRet == 0)
+		    {
+			    msg.value = msg.value + "Create Data File ok\n";
+		    }
+		    else
+		    {
+			    msg.value = msg.value + "Create Data File error\n";
+		    }
+        }).catch((error) => {
+            console.log('desfire_createDataFile catch fail->' + error);
+        });
+    }
+    else if(radio_fileType[1].checked == true)
+    {
+        var txt_MinLimit = document.getElementById("txt_MinLimit");
+        var txt_MaxLimit = document.getElementById("txt_MaxLimit");
+        var txt_InitValue = document.getElementById("txt_initalValue");
+        var txt_creditEnable = document.getElementById("txt_enable_credit");
+
+        var iMinLimit = parseInt(txt_MinLimit.value);
+        var iMaxLimit = parseInt(txt_MaxLimit.value);
+        var iInitValue = parseInt(txt_InitValuer.value);
+        var iCreditEnable = parseInt(txt_creditEnable.value);
+
+        obj.desfire_createValueFile(icdev,iFileID, iComSetting, strAccessRight, iMinLimit, iMaxLimit, iInitValue, iCreditEnable).then((rData) => {
+		    var iRet = rData.RePara_Int;   
+		    if(iRet == 0)
+		    {
+			    msg.value = msg.value + "Create Value File ok\n";
+		    }
+		    else
+		    {
+			    msg.value = msg.value + "Create Value File error\n";
+		    }
+        }).catch((error) => {
+            console.log('desfire_createValueFile catch fail->' + error);
+        });
+    }
+    else if(radio_fileType[1].checked == true)
+    {
+        var txt_recordSize = document.getElementById("txt_recordSize");
+        var txt_maxNumber = document.getElementById("txt_maxNumber");
+        var iRecordSize = parseInt(txt_recordSize.value);
+        var iMaxRecNumber = parseInt(txt_maxNumber.value);
+
+        obj.desfire_createCsyRecord(icdev,iFileID, iComSetting, strAccessRight, iRecordSize, iMaxRecNumber).then((rData) => {
+		    var iRet = rData.RePara_Int;   
+		    if(iRet == 0)
+		    {
+			    msg.value = msg.value + "Create Record File ok\n";
+		    }
+		    else
+		    {
+			    msg.value = msg.value + "Create Record File error\n";
+		    }
+        }).catch((error) => {
+            console.log('desfire_createCsyRecord catch fail->' + error);
+        });
+    }
+}
+
+//Read card
+function ReadDataFile()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_rwAddr = document.getElementById("txt_datafile_offset");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_rwLen = document.getElementById("txt_datafile_length");
+    var rwLen = parseInt(txt_rwLen.value);
+    var txt_data = document.getElementById("txt_datafile_data");
+
+    obj.desfire_read(icdev,iFileID, rwAddr, rwLen, gl_sessionKey).then((rData) => {
+		var data =  rData.RePara_Str;
+		if(data != "")
+		{
+			msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+            txt_data.value = data;
+		}
+		else
+		{
+			msg.value = msg.value + "Read error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_read catch fail->' + error);
+    });
+
+}
+
+//Write card
+function WriteDataFile()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_rwAddr = document.getElementById("txt_datafile_offset");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_dataForW = document.getElementById("txt_datafile_length");
+    var txt_data = document.getElementById("txt_datafile_data");
+    var strData = txt_data.value;
+	
+    obj.desfire_write(icdev, iFileID, rwAddr, strData, gl_sessionKey).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write card ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write card error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_write catch fail->' + error);
+    });
+}
+
+function ReadValueFile()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_value = document.getElementById("txt_value");
+
+    obj.desfire_getValue(icdev,iFileID, gl_sessionKey).then((rData) => {
+		var data =  rData.RePara_Str;
+		if(data != "")
+		{
+			msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+            txt_value.value = data;
+		}
+		else
+		{
+			msg.value = msg.value + "Read error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_getValue catch fail->' + error);
+    });
+
+}
+function CreditValueFile()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_value = document.getElementById("txt_value");
+    var iValue = parseInt(txt_value.value);
+
+    obj.desfire_credit(icdev,iFileID, iValue, gl_sessionKey).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Credit ok \n";
+		}
+		else
+		{
+			msg.value = msg.value + "Credit error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_credit catch fail->' + error);
+    });
+
+}
+function DebitValueFile()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_value = document.getElementById("txt_value");
+    var iValue = parseInt(txt_value.value);
+
+    obj.desfire_debit(icdev,iFileID, iValue, gl_sessionKey).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Debit ok \n";
+            txt_value.value = data;
+		}
+		else
+		{
+			msg.value = msg.value + "Debit error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_debit catch fail->' + error);
+    });
+
+}
+
+function ReadRecord()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_rwAddr = document.getElementById("txt_recordFile_offset");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_recNum = document.getElementById("txt_recordFile_number");
+    var rwRecNum = parseInt(txt_recNum.value);
+    var txt_rwLen = document.getElementById("txt_recordFile_length");
+    var rwLen = parseInt(txt_rwLen.value);
+    var txt_data = document.getElementById("txt_recordFile_data");
+
+    obj.desfire_readRecord(icdev,iFileID, rwAddr, rwRecNum, gl_sessionKey).then((rData) => {
+		var data =  rData.RePara_Str;
+		if(data != "")
+		{
+			msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+            txt_data.value = data;
+		}
+		else
+		{
+			msg.value = msg.value + "Read error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_readRecord catch fail->' + error);
+    });
+}
+function WriteRecord()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+    var txt_rwAddr = document.getElementById("txt_recordFile_offset");
+    var rwAddr = parseInt(txt_rwAddr.value);
+    var txt_data = document.getElementById("txt_recordFile_data");
+    var dataW = txt_data.value;
+
+    obj.desfire_writeRecord(icdev,iFileID, rwAddr, dataW, gl_sessionKey).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write ok \n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_writeRecord catch fail->' + error);
+    });
+}
+function DeleteAllRecords()
+{
+    var txt_fileID = document.getElementById("txt_file_id");
+    var iFileID = parseInt(txt_fileID.value);
+
+    obj.desfire_clearRecord(icdev,iFileID).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Clear record ok \n";
+		}
+		else
+		{
+			msg.value = msg.value + "Clear record  error\n";
+		}
+    }).catch((error) => {
+        console.log('desfire_clearRecord catch fail->' + error);
+    });
+}
+
+function AuthenKey()
+{
+    var txt_keyNo = document.getElementById("txt_authen_keyNo");
+    var iKeyNo = parseInt(txt_keyNo.value);
+    var txt_key = document.getElementById("txt_authen_key");
+    var strKey = txt_key.value;
+    var radio_authenType = document.getElementsByName("RadioAuthenType");
+
+    if(radio_authenType[0].checked == true)
+    {
+        obj.authen_desfire(icdev,iKeyNo, strKey).then((rData) => {
+		    gl_sessionKey =  rData.RePara_Str;
+		    if(gl_sessionKey != "")
+		    {
+			    msg.value = msg.value + "Authen ok, sessionKey: " + gl_sessionKey + "\n";
+		    }
+		    else
+		    {
+			    msg.value = msg.value + "Authen error\n";
+		    }
+        }).catch((error) => {
+            console.log('authen_desfire catch fail->' + error);
+        });
+    }
+    else if(radio_authenType[1].checked == true)
+    {
+        obj.authen_desfire_aes(icdev,iKeyNo, strKey).then((rData) => {
+		    gl_sessionKey =  rData.RePara_Str;
+		    if(gl_sessionKey != "")
+		    {
+			    msg.value = msg.value + "Authen ok, sessionKey: " + gl_sessionKey + "\n";
+		    }
+		    else
+		    {
+			    msg.value = msg.value + "Authen error\n";
+		    }
+        }).catch((error) => {
+            console.log('authen_desfire_aes catch fail->' + error);
+        });
+    }
+}
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+function ClearMessage()
+{
+	msg.value = "";
+}
+
+//"test1" -> "7465737431"
+function Hex2Str(ascStr)
+{
+    if(ascStr=="")
+        return "";
+    var hexCharCode=[];
+    //hexCharCode.push("0x");
+    for(var i = 0; i< ascStr.length; i++){
+        hexCharCode.push((ascStr.charCodeAt(i)).toString(16));
+    }
+    return hexCharCode.join("");
+}
+
+//"313233"->"123"
+function Str2Hex(strHex)
+{
+   var trimedStr = strHex.trim();
+   var rawStr = trimedStr.substr(0, 2).toLowerCase() == "0x"?trimedStr.substr(2):trimedStr;
+   var len = rawStr.length;
+   if(len % 2 != 0){
+    //Encount invalid data
+    return "";
+   }
+   var curCharCode;
+   var resultStr = [];
+   for(var i =0; i< len; i = i +2 ){
+    curCharCode = parseInt(rawStr.substr(i, 2), 16);
+    resultStr.push(String.fromCharCode(curCharCode));
+   }
+   return resultStr.join("");
+}
+
+function sliceStringByLength(text, trimLen)
+{
+    let arrStr =[];
+    let textLen = text.length;
+    let pAdr = 0;
+    let thisTrimLen;
+
+    while(pAdr < textLen)
+    {
+        if((textLen - pAdr) > trimLen)
+            thisTrimLen = trimLen;
+        else
+            thisTrimLen = textLen - pAdr;
+
+        arrStr.push(text.substr(pAdr, thisTrimLen));
+        pAdr = pAdr + thisTrimLen;
+    }
+    return arrStr;
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+
+<p align="left"><h2>Link Reader</h2> </p> 
+<p align="left">
+<input type="button" value="  Link  " name="btnConnect" onclick="Connect()">
+<input type="button" value=" FindCard " name="btn_FindCard" onclick="Findcard()">
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()">
+</p> 
+
+<div id="Files Operation" style="text-align:left;" >
+
+<p align="left"><h2>APP</h2> </p> 
+
+<p>
+<div>
+<input type="button" value="Get AIDs " name="btnGetAIDs" onclick="GetAIDs()">
+<select id = "AID_list"  onmousedown="selectAIDclicked()" ></select>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<input type="button" value="Create AID" name="btnCreateAID" onclick="CreateAID()">
+<input type="text" id="txt_newAID" value="010000" />
+</div>
+
+<div>
+<input type="button" value="Get Files " name="btnGetFiles" onclick="GetFiles()">
+<textarea  id="txt_file_list" ></textarea>
+</div>
+
+</p>
+</div>
+
+<div id="Div1" style="text-align:left;" >
+
+<p align="left"><h2>Files</h2> </p> 
+
+<p>
+<div>
+<span>File ID</span>
+<input type="text" id="txt_file_id" value="01" />
+<input type="button" value="Check File " name="btnCheckFile" onclick="CheckFile()">
+</div>
+
+<div>
+<span>Com Setting</span><input type="text" id="txt_comSetting" value="0" size="3" />
+<span>Access Right</span><input type="text" id="txt_acessRight" value="eeee" size="4" />
+<span>File Size</span><input type="text" id="txt_fileSize" value="32" size="4" />
+<span>Record Size</span><input type="text" id="txt_recordSize" value="10" size="4" />
+<span>Max Num</span><input type="text" id="txt_maxNumber" value="10" size="3"  />
+<span>Min Limit</span><input type="text" id="txt_MinLimit" value="0" size="3" />
+<span>Max Limit</span><input type="text" id="txt_MaxLimit" value="10000" size="6" />
+<span>Init Value</span><input type="text" id="txt_initalValue" value="0" size="3" />
+<span>Credit En</span><input type="text" id="txt_enable_credit" value="0" size="1"  />
+</div>
+
+<div>
+<input type="button" value="Create File" name="btnCreateFile" onclick="CreateFile()">
+</div>
+
+</p>
+</div>
+
+
+<p align="left">
+<input type="radio" name="flexRadioDefault" value="Data File" checked />
+<label>Data File</label>
+<input type="radio" name="flexRadioDefault" value="Value File" />
+<lable>Value File</lable>
+<input type="radio" name="flexRadioDefault" value="Record File" />
+<lable>Record File</lable>
+</p>
+
+<div>
+<p align="left"><h3>Data File</h3> </p> 
+<span>Offset</span><input type="text" id="txt_datafile_offset" value="0" />
+<span>Length</span><input type="text" id="txt_datafile_length" value="8" />
+<span>Data</span><input type="text" id="txt_datafile_data" value="1122334455667788" />
+<input type="button" value="Read" name="btnReadDataFile" onclick="ReadDataFile()">
+<input type="button" value="Write" name="btnWriteDataFile" onclick="WriteDataFile()">
+</div>
+
+<div>
+<p align="left"><h3>Value File</h3> </p> 
+<span>Value</span><input type="text" id="txt_value" value="0" />
+<input type="button" value="ReadVal" name="btnReadValueFile" onclick="ReadValueFile()">
+<input type="button" value="Credit" name="btnCreditValueFile" onclick="CreditValueFile()">
+<input type="button" value="Debit" name="btnDebitValueFile" onclick="DebitValueFile()">
+</div>
+
+<div>
+<p align="left"><h3>Record File</h3> </p> 
+<span>Offset</span><input type="text" id="txt_recordFile_offset" value="0" />
+<span>Record Number</span><input type="text" id="txt_recordFile_number" value="1" />
+<span>Length</span><input type="text" id="txt_recordFile_length" value="8" />
+<span>Data</span><input type="text" id="txt_recordFile_data" value="1122334455667788" />
+<input type="button" value="Read" name="btnReadRecord" onclick="ReadRecord()">
+<input type="button" value="Write" name="btnWriteRecord" onclick="WriteRecord()">
+<input type="button" value="DeleteAll" name="btnDeleteAll" onclick="DeleteAllRecords()">
+</div>
+
+<div id="Div2" style="text-align:left;" >
+<p align="left"><h2>Authentication</h2> </p> 
+<p>
+<div>
+<p>
+<input type="radio" name="RadioAuthenType" value="TDES" checked />
+<label>TDES</label>
+<input type="radio" name="RadioAuthenType" value="AES" />
+<lable>AES</lable>
+</p>
+<span>Key No</span><input type="text" id="txt_authen_keyNo" value="0" />
+<span>Key</span><input type="text" id="txt_authen_key" value="00000000000000000000000000000000" size="32" maxlength="32"/>
+<input type="button" value="Authenticate" name="btnAuthen" onclick="AuthenKey()">
+</div>
+</p>
+</div>
+
+<p align="left"><h4>Message</h4> </p> 
+<p align="left"><textarea rows="5" id="TxtAreaMsg" cols="111"></textarea></p>
+<p align="left">
+<input type="button" value="  Clear Message  " name="btnClearMessage" onclick="ClearMessage()">&nbsp;  
+</p> 
+
+</form>
+ 
+</left>
+
+<script>
+    var msg = document.getElementById('TxtAreaMsg');
+</script>
+ 
+</BODY>
+</HTML>

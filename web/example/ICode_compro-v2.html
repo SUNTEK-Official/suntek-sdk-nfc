@@ -1,0 +1,283 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+ var isComOpen=false;
+ var icdev= -1;
+ var gl_BinBlock = 25;
+ var gl_rwBlockNum = 1;
+ var gl_flags = 0x22;
+ var gl_uid = "";
+
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+//Link Reader
+function Connect()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+            obj.initialcom(100, 115200).then((rData) => {
+
+                icdev =parseInt(rData.RePara_Str) 
+
+                if(icdev != -1)
+                {
+                    msg.value =msg.value+"Link reader ok\n";
+
+                    isComOpen = true;
+
+                    //Do a beep
+                    obj.beep(icdev, 10).then((rData) => {
+
+                    }).catch((error) => {
+                        console.log('beep catch fail->' + error);
+                    });
+                }
+                else
+                {
+					msg.value = "Link reader error\n";
+					isComOpen=false;           //Set reader link failed status
+                }
+
+            }).catch((error) => {
+                console.log('initialcom catch fail->' + error);
+            })
+	    }
+	}catch(e){alert(e.message);}
+}
+
+// Find card
+function Findcard()
+{
+     var findMode = 0x36;//0x16:multi-card mode, 0x36:single-card mode
+     var afi = 0;
+     var maskLen = 0;
+     
+    obj.icode_inventory(icdev,findMode, afi, maskLen).then((rData) => {
+	    var strcard= rData.RePara_Str;
+	    if(strcard!="")
+	    {
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		    gl_uid = strcard;
+		    
+
+            obj.icode_select_uid(icdev, gl_flags, gl_uid).then((rData) => {
+		          var rel = rData.RePara_Int;
+		          if(0 == rel)
+		          {
+                     msg.value=msg.value+" Select uid ok \n";
+		          }
+		          else msg.value=msg.value+" Select uid error \n";
+            }).catch((error) => {
+                console.log('icode_select_uid catch fail->' + error);
+            });
+	    }
+	    else
+	    {
+		    msg.value=msg.value+"Found no card \n";
+	    }
+    }).catch((error) => {
+        console.log('icode_inventory catch fail->' + error);
+    });
+}
+//Read card
+function Read()
+{
+     var findMode = 0x36;//0x16:multi-card mode, 0x36:single-card mode
+     var afi = 0;
+     var maskLen = 0;
+     
+    obj.icode_inventory(icdev,findMode, afi, maskLen).then((rData) => {
+	    var strcard= rData.RePara_Str;
+	    if(strcard!="")
+	    {
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		    gl_uid = strcard;
+		    
+
+            obj.icode_select_uid(icdev, gl_flags, gl_uid).then((rData) => {
+		          var rel = rData.RePara_Int;
+		          if(0 == rel)
+		          {
+                    obj.icode_readblock(icdev, gl_flags, gl_BinBlock, gl_rwBlockNum, gl_uid).then((rData) => {
+			            var data =  rData.RePara_Str;     
+			            if(data != "")
+			            {
+				            msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Read error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('icode_readblock catch fail->' + error);
+                    });
+		          }
+		          else 
+                  {
+                    msg.value=msg.value+" Select uid error \n";
+                  }
+            }).catch((error) => {
+                console.log('icode_select_uid catch fail->' + error);
+            });
+	    }
+	    else
+	    {
+		    msg.value=msg.value+"Found no card \n";
+	    }
+    }).catch((error) => {
+        console.log('icode_inventory catch fail->' + error);
+    });
+}
+
+//Write card
+function Write()
+{
+     var findMode = 0x36;//0x16:multi-card mode, 0x36:single-card mode
+     var afi = 0;
+     var maskLen = 0;
+     
+    obj.icode_inventory(icdev,findMode, afi, maskLen).then((rData) => {
+	    var strcard= rData.RePara_Str;
+	    if(strcard!="")
+	    {
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		    gl_uid = strcard;
+		    
+
+            obj.icode_select_uid(icdev, gl_flags, gl_uid).then((rData) => {
+		          var rel = rData.RePara_Int;
+		          if(0 == rel)
+		          {
+                    obj.icode_writeblock(icdev, gl_flags, gl_BinBlock, gl_rwBlockNum, gl_uid,"12345678").then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "Write card ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Write card error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('icode_writeblock catch fail->' + error);
+                    });
+		          }
+		          else msg.value=msg.value+" Select uid error \n";
+            }).catch((error) => {
+                console.log('icode_select_uid catch fail->' + error);
+            });
+	    }
+	    else
+	    {
+		    msg.value=msg.value+"Found no card \n";
+	    }
+    }).catch((error) => {
+        console.log('icode_inventory catch fail->' + error);
+    });
+}
+
+//Lock card
+function Lock()
+{
+     var findMode = 0x36;//0x16:multi-card mode, 0x36:single-card mode
+     var afi = 0;
+     var maskLen = 0;
+     
+    obj.icode_inventory(icdev,findMode, afi, maskLen).then((rData) => {
+	    var strcard= rData.RePara_Str;
+	    if(strcard!="")
+	    {
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		    gl_uid = strcard;
+		    
+
+            obj.icode_select_uid(icdev, gl_flags, gl_uid).then((rData) => {
+		          var rel = rData.RePara_Int;
+		          if(0 == rel)
+		          {
+                    obj.icode_lock_block(icdev, gl_flags, gl_BinBlock, gl_uid).then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "lock block "+gl_BinBlock+" ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "lock block "+gl_BinBlock+" error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('icode_lock_block catch fail->' + error);
+                    });
+		          }
+		          else msg.value=msg.value+" Select uid error \n";
+            }).catch((error) => {
+                console.log('icode_select_uid catch fail->' + error);
+            });
+	    }
+	    else
+	    {
+		    msg.value=msg.value+"Found no card \n";
+	    }
+    }).catch((error) => {
+        console.log('icode_inventory catch fail->' + error);
+    });
+
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+<p align="center">&nbsp; <input type="button" value="  Link  " name="btnConnect" onclick="Connect()">&nbsp;  
+<input type="button" value=" FindCard " name="btn_FindCard" onclick="Findcard()">&nbsp;
+<input type="button" value="  ReadCard  " name="btn_Read" onclick="Read()">&nbsp; 
+<input type="button" value=" WriteCard " name="btn_Write" onclick="Write()">&nbsp;
+<input type="button" value=" LockBlock " name="btn_LockBlock" onclick="Lock()">&nbsp;
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()"></p> 
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

@@ -1,0 +1,8 @@
+
+GCC:=arm-linux-gnueabihf-gcc
+SONAME:=./libcomPro.so
+SRC:=../../../../*.c
+all:
+	$(GCC) -fPIC -o demo -g $(SRC) $(SONAME)
+clean:
+	rm -rf demo *~

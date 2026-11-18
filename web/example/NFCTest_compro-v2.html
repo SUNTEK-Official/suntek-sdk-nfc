@@ -1,0 +1,367 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script>
+    var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+ var hasCard =false;
+ var isComOpen=false;
+ var icdev= -1;
+ var g_curDev = 0;
+ var g_DevArr = new Array(10);
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+
+function addItemToDevListUI(hdev)
+{
+    g_DevArr[g_curDev] = hdev;
+    g_curDev = g_curDev + 1;
+
+    //var selectItem = document.getElementById('sel_DeviceList');
+    var gSelect = document.getElementById('sel_DeviceList');
+    var option1 = document.createElement('option');
+    option1.value = hdev;// 'value_'+g_curDev.toString();
+    option1.text = 'dev:' + g_curDev.toString();
+    gSelect.add(option1);
+
+    msg.value =msg.value+"Link reader ok\n";
+
+    isComOpen = true;
+
+    icdev = hdev;
+
+    gSelect.addEventListener('change',function(){
+        var selectedValue = this.value;
+        icdev = selectedValue;
+    });
+
+//    //Do a beep
+//    obj.beep(hdev, 10).then((rData) => {
+
+//    }).catch((error) => {
+//        console.log('beep catch fail->' + error);
+//    });
+}
+
+//Link Reader
+function Connect()
+{
+    var localICDev = -1;
+
+	try{
+		if(isComOpen==false)          //if reader link failed
+		{
+            if(obj != null)
+            {
+                obj.initialcom(100, 115200).then((rData) => {
+
+                    localICDev =parseInt(rData.RePara_Str) 
+
+                    //alert('link ret1 ' + localICDev);
+
+                    if(localICDev != -1)
+                    {
+                        //Refresh list
+                        addItemToDevListUI(localICDev);
+                    }
+                    else
+                    {
+					    msg.value = "Link reader error\n";
+					    isComOpen=false;           //Set reader link failed status
+                    }
+
+                }).catch((error) => {
+                    console.log('initialcom catch fail->' + error);
+                });
+            }
+		}
+	}catch(e){alert(e.message);}
+
+}
+
+
+
+// Find card
+function Findcard()
+{
+    obj.findCard_ex(icdev,1, 0x40).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+//Write MiniAppLanucher
+function Write_MiniAppLanucher()
+{
+	var tagType = 9; //NTAG213
+
+    obj.writeNFCTag_MiniAppLanucher(icdev, tagType, "weixin://dl/business/?t=RjLSFhYQQrl", "", 0 ).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write MiniApp Lanucher ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write MiniApp Lanucher error\n";
+		}
+    }).catch((error) => {
+        console.log('writeNFCTag_MiniAppLanucher catch fail->' + error);
+    });
+}
+
+//Write URI
+function Write_URI()
+{
+	var tagType = 9; //NTAG213
+
+    obj.writeNFCTag_URI(icdev, tagType, 
+	0x01,//0x01->http://www. 0x02->https://www.
+	"laicard.com", "", 0 ).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write URI ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write URI error\n";
+		}
+    }).catch((error) => {
+        console.log('writeNFCTag_URI catch fail->' + error);
+    });
+}
+
+//Write Text
+function Write_Text()
+{
+	var tagType = 9; //NTAG213
+
+    obj.writeNFCTag_Text(icdev, tagType, "zh",
+	"This a example text",
+	0x03,//TextFormat: 0x01->GBK, 0x02->Unicode, 0x03->utf8
+	"", 0 ).then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			msg.value = msg.value + "Write Text ok\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Write Text error\n";
+		}
+    }).catch((error) => {
+        console.log('writeNFCTag_Text catch fail->' + error);
+    });
+}
+
+//Write Multiple Record
+function Write_MultiRecord() {
+    var tagType = 10; //9->NTAG213, 10->NTAG215
+    var records =[];
+    records.push({
+    "format": 4,
+    "payloadType": "android.com:pkg",
+    "payload": "com.etekcity.vesyncplatform",
+    "para": 0,
+    "appendHeader": ""
+    });
+    records.push({
+    "format": 3,
+    "payloadType": "U",
+    "payload": "app.vesync.com",
+    "para": 0x04,
+    "appendHeader": ""
+    });
+    records.push({
+    "format": 2,
+    "payloadType": "com.etekcity.vesyncplatform/externaltype",
+    "payload": "{\"ver\":1,\"act\":\"addOrShowDev\",\"conMod\":\"GS_AFR_CAF-X602-KUS_US\"}",
+    "para": 0,
+    "appendHeader": ""
+    });
+
+    try{
+        let json_records = JSON.stringify(records);
+        json_records = json_records.replace(/,/g, '\'');//This replace operation is necessary!
+
+
+         obj.writeNFCTag_ex(icdev, tagType, 3,json_records, "", 0).then((rData) => {
+			var iRet = rData.RePara_Int;   
+			if(iRet == 0)
+			{
+				msg.value = msg.value + "Write general record ok\n";
+			}
+			else
+			{
+				msg.value = msg.value + "Write general record error: " + iRet+ "\n";
+			}
+        }).catch((error) => {
+            console.log('writeNFCTag_ex catch fail->' + error);
+        });
+
+    }catch(error){ console.error("convert error:", error);}
+
+
+
+
+}
+
+//Read Tag
+function Read_NFCTag()
+{
+	var tagType = 9; //9->NTAG213, 10->NTAG215
+
+    obj.readNFCTag(icdev, tagType, 
+	0x03,//TextFormat: 0x01->GBK, 0x02->Unicode, 0x03->utf8
+	"").then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			var strPayload= rData.RePara_Str;
+			//NOTE: Skip the first 3 chars when Text 
+			//NOTE: Skip the first 1 chars when URI
+			msg.value = msg.value + "Payload:" + strPayload.slice(3) + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Read tag error\n";
+		}
+    }).catch((error) => {
+        console.log('readNFCTag catch fail->' + error);
+    });
+
+}
+
+//Read Tag
+function Read_MultiRecord()
+{
+	var tagType = 10; //9->NTAG213, 10->NTAG215
+
+    obj.readNFCTag_ex(icdev, tagType, 
+	0x03,//TextFormat: 0x01->GBK, 0x02->Unicode, 0x03->utf8
+	"").then((rData) => {
+		var iRet = rData.RePara_Int;   
+		if(iRet == 0)
+		{
+			var strRel= rData.RePara_Str;
+            var json_str;
+            json_str = strRel.replace(/\'/g, ',');//This replace operation is necessary!
+
+			msg.value = msg.value + "Read records ok, JSON Str:\n" + json_str + "\n";
+
+		}
+		else
+		{
+			msg.value = msg.value + "Read multiple record error\n";
+		}
+    }).catch((error) => {
+        console.log('readNFCTag_ex catch fail->' + error);
+    });
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    var i;
+    var curDevNums= g_curDev;
+
+    //for(i = 0; i< curDevNums; i++)
+    if(g_curDev > 0)
+    {
+        obj.exit(g_DevArr[g_curDev - 1]).then((rData) => {
+            isComOpen=false; //Set unlink status
+            msg.value =msg.value+"Device dislinked\n";
+
+            g_curDev = g_curDev - 1;
+
+            if(g_curDev > 0)Disconnect();
+
+        }).catch((error) => {
+            console.log('exit catch fail->' + error);
+        });
+    }
+
+    var selectItem = document.getElementById('sel_DeviceList');
+    selectItem.innerHTML = '';
+}
+
+
+
+
+</script>
+ 
+<br>
+<form name="formname">
+
+<p align="center">&nbsp;
+<label for="lb_deviceList">device list:</label>
+<select id="sel_DeviceList" name="dev_list">
+</select>
+</p>
+
+<p align="center">&nbsp; <input type="button" value="  Link  " name="btnConnect" onclick="Connect()">&nbsp;  
+<input type="button" value=" FindCard " name="btn_FindCard" onclick="Findcard()">&nbsp;
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()"></p> 
+
+<p align="center">&nbsp;
+<input type="button" value=" Write_URI " name="btn_WriteURI" onclick="Write_URI()">&nbsp;
+</p> 
+<p align="center">&nbsp;
+<input type="button" value=" Write_Text " name="btn_WriteText" onclick="Write_Text()">&nbsp;
+</p>
+<p align="center">&nbsp;
+<input type="button" value=" Write_MiniAppLanucher " name="btn_Write_MiniAppLanucher" onclick="Write_MiniAppLanucher()">&nbsp;
+</p>
+
+<p align="center">&nbsp;
+<input type="button" value=" Read_NFCTag " name="btn_Read_NFCTag" onclick="Read_NFCTag()">&nbsp;
+</p>
+
+<p align="center">&nbsp;
+<input type="button" value=" Write_MultiRecord " name="btn_Write_MultiRecord" onclick="Write_MultiRecord()">&nbsp;
+<input type="button" value=" Read_MultiRecord " name="btn_Read_MultiRecord" onclick="Read_MultiRecord()">&nbsp;
+</p>
+
+
+
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

@@ -1,0 +1,840 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Example Reader Used In Web </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+
+<script type="text/javascript" src="interface-v2.js"></script>
+
+<script> 
+var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+////////// Global Parameters  ///////////////////////////////////////////////////
+ var isComOpen=false; //A flag indicate whether the reader is open or not
+ var icdev= -1; //The handle value which band with reader
+ var gl_sector = 2;//The sector number of card for testing
+ var gl_BinBlock = 8;//The binary block number for read/write testing
+ var gl_valBlock = 9; //The value block number for read/write testing
+ var gl_romRWLen = 10; //The length of memory in reader for Reading/Writting
+ var gl_romRWAddr = 0; //The address of memory in reader for Reading/Writting
+
+///////// App Code  //////////////////////////////////////////////////////////
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+});
+
+//Link Reader
+function Connect()
+{
+	try{
+	    if(isComOpen==false)          //if reader link failed
+	    {
+            if(obj != null)
+            {
+                obj.initialcom(100, 115200).then((rData) => {
+
+                    icdev =parseInt(rData.RePara_Str) 
+
+                    if(icdev != -1)
+                    {
+                        msg.value =msg.value+"Link reader ok\n";
+
+                        isComOpen = true;
+
+                        //Do a beep
+                        obj.beep(icdev, 10).then((rData) => {
+
+                        }).catch((error) => {
+                            console.log('beep catch fail->' + error);
+                        });
+                    }
+                    else
+                    {
+					    msg.value = "Link reader error\n";
+					    isComOpen=false;           //Set reader link failed status
+                    }
+
+                }).catch((error) => {
+                    console.log('initialcom catch fail->' + error);
+                });
+            }
+	    }
+	}catch(e){alert(e.message);}
+
+}
+function GetVer()
+{
+    obj.getHW(icdev).then((rData) => {
+        msg.value =msg.value+"Version:" + rData.RePara_Str + "\n";
+    }).catch((error) => {
+        console.log('getHW catch fail->' + error);
+    });
+}
+function ReadROM()
+{
+    obj.srd_eeprom(icdev, gl_romRWAddr, gl_romRWLen).then((rData) => {
+        msg.value =msg.value+"Read EEPROM:" + rData.RePara_Str + "\n";
+    }).catch((error) => {
+        console.log('srd_eeprom catch fail->' + error);
+    });
+}
+function WriteROM()
+{
+	var testStr = "This is a test string";
+	var str_len = testStr.length;
+
+	gl_romRWLen = str_len;
+
+    obj.swr_eeprom(icdev, gl_romRWAddr, gl_romRWLen, testStr).then((rData) => {
+        msg.value =msg.value+"Write EEPROM result:" + rData.RePara_Int + "\n";
+    }).catch((error) => {
+        console.log('swr_eeprom catch fail->' + error);
+    });
+}
+
+// Find card
+function Findcard()
+{
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            msg.value=msg.value+"Card ID: "+strcard+"\n";
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+
+
+}
+//Read card
+function Read()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Read Card
+                    obj.read(icdev,gl_BinBlock).then((rData) => {
+                        var data =  rData.RePara_Str;
+			            if(data != "")
+			            {
+				            msg.value = msg.value + "Read ok, data: \n" + data + "\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Read error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('read catch fail->' + error);
+                    });
+
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+//Write card
+function Write()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Write Card
+                    obj.write(icdev,gl_BinBlock,"11111111111111111111111111111111").then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "Write card ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Write card error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('write catch fail->' + error);
+                    });
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+
+}
+
+function fullRead_findCard(sector)
+{
+    if(sector < 16)
+    {
+        obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+            var strcard= rData.RePara_Str;
+		    if(strcard!="")
+		    {
+                fullRead_authen(sector);
+		    }
+		    else
+		    {
+			    msg.value=msg.value+"Found no card \n";
+		    }
+        }).catch((error) => {
+            console.log('findCard_ex catch fail->' + error);
+        });
+    }
+}
+
+function full_getAuthenKey(sector)
+{
+    var key = "ffffffffffff";
+    switch(sector)
+    {
+        case 0:     key = "ffffffffffff";break;
+        case 1:     key = "ffffffffffff";break;
+        case 2:     key = "ffffffffffff";break;
+        case 3:     key = "ffffffffffff";break;
+        case 4:     key = "ffffffffffff";break;
+        case 5:     key = "ffffffffffff";break;
+        case 6:     key = "ffffffffffff";break;
+        case 7:     key = "ffffffffffff";break;
+        case 8:     key = "ffffffffffff";break;
+        case 9:     key = "ffffffffffff";break;
+        case 10:    key = "ffffffffffff";break;
+        case 11:    key = "ffffffffffff";break;
+        case 12:    key = "ffffffffffff";break;
+        case 13:    key = "ffffffffffff";break;
+        case 14:    key = "ffffffffffff";break;
+        case 15:    key = "ffffffffffff";break;
+
+    }
+    return key;
+}
+
+function fullRead_authen(sector)
+{
+    var key = full_getAuthenKey();
+
+    if(sector < 16)
+    {
+        obj.authenticationEx(icdev,0,sector,key).then((rData) => {
+            
+            var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                fullRead_read(sector * 4);
+			}
+			else
+            {
+             msg.value=msg.value+" Authen sector:" + sector +" error \n";
+             fullRead_findCard(sector + 1);
+            }
+
+        }).catch((error) => {
+        console.log('authenticationEx catch fail->' + error);
+        });
+    }
+}
+function fullRead_read(block)
+{
+    if( (block % 4) != 3)//
+    {
+        obj.read(icdev,block).then((rData) => {
+            var data =  rData.RePara_Str;
+			if(data != "")
+			{
+				msg.value = msg.value + "Read block: "+block+" ok, data: \n" + data + "\n";
+			}
+			else
+			{
+				msg.value = msg.value + "Read : "+block+" error\n";
+			}
+
+            fullRead_read(block + 1); //һ
+
+        }).catch((error) => {
+            console.log('read catch fail->' + error);
+        });
+    }
+    else
+    {
+        fullRead_authen( (block + 1)/4 );//֤һ
+    }
+}
+
+//Read card
+function ReadFull()
+{
+    fullRead_findCard(0); //0ʼ
+}
+
+
+function fullWrite_findCard(sector)
+{
+    if(sector < 16)
+    {
+        obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+            var strcard= rData.RePara_Str;
+		    if(strcard!="")
+		    {
+                fullWrite_authen(sector);
+		    }
+		    else
+		    {
+			    msg.value=msg.value+"Found no card \n";
+		    }
+        }).catch((error) => {
+            console.log('findCard_ex catch fail->' + error);
+        });
+    }
+}
+function fullWrite_authen(sector)
+{
+    var key = full_getAuthenKey();
+
+    if(sector < 16)
+    {
+        obj.authenticationEx(icdev,0,sector,key).then((rData) => {
+            
+            var rel = rData.RePara_Int;
+			if(0 == rel)
+			{
+                msg.value=msg.value+" Authen sector:" + sector +" success \n";
+                fullWrite_write(sector * 4);
+			}
+			else
+            {
+             msg.value=msg.value+" Authen sector:" + sector +" error \n";
+             fullWrite_findCard(sector + 1);
+            }
+
+        }).catch((error) => {
+        console.log('authenticationEx catch fail->' + error);
+        });
+    }
+}
+function fullWrite_write(block)
+{
+    var wData = "00000000000000000000000000000000";
+    switch(block)
+    {
+        case 1:     wData = "11111111111111111111111111111111";break;
+        case 2:     wData = "22222222222222222222222222222222";break;
+        case 4:     wData = "44444444444444444444444444444444";break;
+        case 5:     wData = "55555555555555555555555555555555";break;
+        case 6:     wData = "66666666666666666666666666666666";break;
+        case 8:     wData = "88888888888888888888888888888888";break;
+        case 9:     wData = "99999999999999999999999999999999";break;
+        case 10:    wData = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";break;
+        case 12:    wData = "cccccccccccccccccccccccccccccccc";break;
+        case 13:    wData = "dddddddddddddddddddddddddddddddd";break;
+        case 14:    wData = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";break;
+        case 16:    wData = "10101010101010101010101010101010";break;
+        case 17:    wData = "11111111111111111111111111111111";break;
+        case 18:    wData = "12121212121212121212121212121212";break;
+        case 20:    wData = "14141414141414141414141414141414";break;
+        case 21:    wData = "15151515151515151515151515151515";break;
+        case 22:    wData = "16161616161616161616161616161616";break;
+        case 24:    wData = "18181818181818181818181818181818";break;
+        case 25:    wData = "19191919191919191919191919191919";break;
+        case 26:    wData = "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a";break;
+        case 28:    wData = "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c";break;
+        case 29:    wData = "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d";break;
+        case 30:    wData = "1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e";break;
+        case 32:    wData = "20202020202020202020202020202020";break;
+        case 33:    wData = "21212121212121212121212121212121";break;
+        case 34:    wData = "22222222222222222222222222222222";break;
+        case 36:    wData = "24242424242424242424242424242424";break;
+        case 37:    wData = "25252525252525252525252525252525";break;
+        case 38:    wData = "26262626262626262626262626262626";break;
+        case 40:    wData = "28282828282828282828282828282828";break;
+        case 41:    wData = "29292929292929292929292929292929";break;
+        case 42:    wData = "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a";break;
+        case 44:    wData = "2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c";break;
+        case 45:    wData = "2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d";break;
+        case 46:    wData = "2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f";break;
+        case 48:    wData = "30303030303030303030303030303030";break;
+        case 49:    wData = "31313131313131313131313131313131";break;
+        case 50:    wData = "32323232323232323232323232323232";break;
+        case 52:    wData = "34343434343434343434343434343434";break;
+        case 53:    wData = "35353535353535353535353535353535";break;
+        case 54:    wData = "36363636363636363636363636363636";break;
+        case 56:    wData = "38383838383838383838383838383838";break;
+        case 57:    wData = "39393939393939393939393939393939";break;
+        case 58:    wData = "3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a";break;
+        case 60:    wData = "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c";break;
+        case 61:    wData = "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d";break;
+        case 62:    wData = "3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e";break;
+    }
+    
+
+    if( ((block % 4) != 3) & (block != 0) )//Ϳ0
+    {
+        obj.write(icdev,block, wData).then((rData) => {
+
+			var iRet = rData.RePara_Int;   
+            if(iRet == 0)
+			{
+				msg.value = msg.value + "Write block: "+block+" ok, data: \n" + wData + "\n";
+			}
+			else
+			{
+				msg.value = msg.value + "Write : "+block+" error\n";
+			}
+
+            fullWrite_write(block + 1); //дһ
+
+        }).catch((error) => {
+            console.log('Write catch fail->' + error);
+        });
+    }
+    else
+    {
+        fullWrite_authen( (block + 1)/4 );//֤һ
+    }
+}
+
+//Read card
+function WriteFull()
+{
+    fullWrite_findCard(0); //0ʼд
+}
+
+//Disconnect with reader
+function Disconnect()
+{
+    obj.exit(icdev).then((rData) => {
+        isComOpen=false; //Set unlink status
+        msg.value =msg.value+"Device dislinked\n";
+    }).catch((error) => {
+        console.log('exit catch fail->' + error);
+    });
+}
+
+function InitVal()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Card Init Value
+                    obj.initialval(icdev,gl_valBlock,100).then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "Initial value ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Initial value error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('initialval catch fail->' + error);
+                    });
+
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+function Increment()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Card Increment Value
+                    obj.increment(icdev,gl_valBlock,20).then((rData) => {
+			            var iRet = rData.RePara_Int;
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "Increment value ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Increment value error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('increment catch fail->' + error);
+                    });
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+function Decrement()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Card decrement Value
+                    obj.decrement(icdev,gl_valBlock,10).then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "Decrement value ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Decrement value error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('decrement catch fail->' + error);
+                    });
+
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+function ReadVal()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Card read Value
+                    obj.readval(icdev,gl_valBlock).then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet > 0)
+			            {
+				            msg.value = msg.value + "Current value :" + iRet +"\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Read value error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('readval catch fail->' + error);
+                    });
+
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+function Changekey()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Authentication
+            obj.authenticationEx(icdev,0,gl_sector,"FFFFFFFFFFFF").then((rData) => {
+            
+            	var rel = rData.RePara_Int;
+			    if(0 == rel)
+			    {
+                    //-------------------------------------------------- Change card's password
+                    obj.changkey(icdev,gl_sector,"FFFFFFFFFFFf","FF078069",0,"FFFFFFFFFFFF").then((rData) => {
+			            var iRet = rData.RePara_Int;   
+			            if(iRet == 0)
+			            {
+				            msg.value = msg.value + "Update key ok\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Update key error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('changkey catch fail->' + error);
+                    });
+			    }
+			    else msg.value=msg.value+" Authen sector:" + gl_sector +" error \n";
+
+            }).catch((error) => {
+            console.log('authenticationEx catch fail->' + error);
+            });
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+function ContanctLessCPUCardTest()
+{
+    //-------------------------------------------------------------------- Find Card
+    obj.findCard_ex(icdev,1, 0x80).then((rData) => {
+        var strcard= rData.RePara_Str;
+		if(strcard!="")
+		{
+            //----------------------------------------------------------- Card ATS (Reset)
+            obj.fcpureset(icdev, 0).then((rData) => {
+            
+            	var iRet = rData.RePara_Str;   
+			    if(iRet != "")
+			    {
+                    
+				    msg.value = msg.value + "Cpu card reset:" + iRet + "\n";
+
+                    //--------------------------------------------------  APDU test
+                    obj.fcpuCommandlink(icdev,5,"0084000008",7,60).then((rData) => {
+			            var iRet = rData.RePara_Str;   
+			            if(iRet != "")
+			            {
+				            msg.value = msg.value + "Apdu return:" + iRet + "\n";
+			            }
+			            else
+			            {
+				            msg.value = msg.value + "Apdu error\n";
+			            }
+                    }).catch((error) => {
+                        console.log('fcpuCommandlink catch fail->' + error);
+                    });
+			    }
+			    else
+			    {
+				    msg.value = msg.value + "Cpu card error\n";
+			    }
+
+            }).catch((error) => {
+            console.log('fcpureset catch fail->' + error);
+            });
+		}
+		else
+		{
+			msg.value=msg.value+"Found no card \n";
+		}
+    }).catch((error) => {
+        console.log('findCard_ex catch fail->' + error);
+    });
+}
+
+function Hex2Str()
+{
+    var bytes = "test1";
+    obj.charToHex(bytes, bytes.length * 2).then((rData) => {
+		var str = rData.RePara_Str;
+
+		if(str != "")
+		{
+			msg.value = msg.value + "Hex to string ok, result: \n" + str + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Hex to string error\n";
+		}
+    }).catch((error) => {
+        console.log('fcpuCommandlink catch fail->' + error);
+    });
+}
+
+function Str2Hex()
+{
+    var str = "7465737431";
+    obj.hexTochar(str, str.length /2 ).then((rData) => {
+		var str = rData.RePara_Str;
+
+		if(str != "")
+		{
+			msg.value = msg.value + "String to hex ok, result: \n" + str + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "String to hex error\n";
+		}
+    }).catch((error) => {
+        console.log('fcpuCommandlink catch fail->' + error);
+    });
+}
+
+function cryptTest()
+{
+    var strSrc = "0102030405060708090a0b0c0d0e0f10";
+    var strIv = "0102030405060708";
+    var fEn_De = 1;//0-decrypt ,1-encrypt
+    var alg = 3;//0-DES_ECB, 1-DES_CBC, 2-3DES_ECB, 3-3DES_CBC,4-AES_ECB,5-AES_CBC
+
+    obj.crypt(icdev, fEn_De, alg, strSrc, strIv).then((rData) => {
+		var str = rData.RePara_Str;
+
+		if(str != "")
+		{
+			msg.value = msg.value + "Crypt ok, result: \n" + str + "\n";
+		}
+		else
+		{
+			msg.value = msg.value + "Crypt test error\n";
+		}
+    }).catch((error) => {
+        console.log('fcpuCommandlink catch fail->' + error);
+    });
+}
+
+</script>
+ 
+<br>
+<form name="formname">
+
+<p align="center">
+<input type="button" value="  Link  " name="btnConnect" onclick="Connect()">&nbsp;  
+<input type="button" value=" GetVer " name="btn_GetVer" onclick="GetVer()">&nbsp;
+<input type="button" value=" FindCard " name="btn_FindCard" onclick="Findcard()">&nbsp;
+<input type="button" value="  ReadCard  " name="btn_Read" onclick="Read()">&nbsp; 
+<input type="button" value=" WriteCard " name="btn_Write" onclick="Write()">&nbsp;
+<input type="button" value=" InitVal " name="btn_InitVal" onclick="InitVal()">&nbsp;
+<input type="button" value=" Increment " name="btn_Increment" onclick="Increment()">&nbsp;
+<input type="button" value=" Decrement " name="btn_Decrement" onclick="Decrement()">&nbsp;
+<input type="button" value=" ReadVal " name="btn_ReadVal" onclick="ReadVal()">&nbsp;
+<input type="button" value=" UpdateKey "name="btn_changekey" onclick="Changekey()">&nbsp;
+<input type="button" value="  ReadFullCard  " name="btn_ReadFull" onclick="ReadFull()">&nbsp; 
+<input type="button" value="  WriteFullCard  " name="btn_WriteFull" onclick="WriteFull()">&nbsp; 
+<input type="button" value=" UnLink " name="btn_Disconnect" onclick="Disconnect()">
+</p> 
+
+<p align="center">
+<input type="button" value=" Contactless CPU Card Test " name="btnContactLessCPUCardTest" onclick="ContanctLessCPUCardTest()">
+</p>
+
+<p align="center">
+<input type="button" value="Write ROM" name="btnWriteROM" onclick="WriteROM()">&nbsp;
+<input type="button" value="Read ROM" name="btnReadROM" onclick="ReadROM()">&nbsp;
+</p>
+
+<p align="center">
+<input type="button" value="hex2Str" name="btnHex2Str" onclick="Hex2Str()">&nbsp;
+<input type="button" value="str2Hex" name="btnStr2Hex" onclick="Str2Hex()">&nbsp;
+<input type="button" value="crypt" name="btnCryptTest" onclick="cryptTest()">&nbsp;
+</p>
+</form>
+ 
+</center>
+ 
+</BODY>
+</HTML>

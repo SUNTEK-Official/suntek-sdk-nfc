@@ -1,0 +1,589 @@
+<HTML>
+<HEAD>
+<TITLE>Reader Test</TITLE>
+</HEAD>
+<BODY id="bodyId">
+ 
+<center>
+<h1>Contact-less-CPU Card Test </h1>
+</center>
+ 
+ 
+<br><br>
+ 
+<center>
+
+
+<p align="center"><textarea rows="20" id="TxtArea" cols="111"></textarea></p>
+ 
+<script type="text/javascript" src="interface-v2.js"></script>
+ 
+<script> 
+	var msg = document.getElementById('TxtArea');
+</script>
+
+<script>
+
+var obj = new SmartReader(READER_TYPE._reader_type_compro);
+//To capture what time the driver is ready
+document.addEventListener('webReaderServerNotifyEvent', function(event){
+    console.log(event.detail.message);
+    alert("Server is ready, you can start now!");
+    FM1208Test();
+});
+
+function FM1208Test()
+{
+   var iRet;
+   var data=" ";
+   try{
+	    var icdev=-1;
+
+	    //Link Reader..
+        obj.initialcom(100, 115200).then((rData) => {
+
+            icdev =parseInt(rData.RePara_Str) 
+
+            if(icdev != -1)
+            {
+                msg.value =msg.value+"Link reader ok\n";
+                //--------------------------------------------------------- RF reset
+                obj.reset(icdev,10).then((rData) => {
+                    
+                    //----------------------------------------------------- Find card
+                    obj.findcardStr(icdev,1).then((rData) => {
+
+			            var rel = rData.RePara_Int;
+			            var strcard= rData.RePara_Str;
+			            if(rel != 0)
+			            {
+				            msg.value=msg.value+"Found no card \n";
+				            return;
+			            }
+                        msg.value=msg.value+"Card ID: "+strcard+"\n";
+
+                        //----------------------------------------------- Card reset
+                        obj.fcpureset(icdev,0).then((rData) => {
+			                var rel = rData.RePara_Int;
+			                var data = rData.RePara_Str;
+			                var cmd = "0084000008";
+			                if(rel != 0)
+			                {
+				                msg.value = msg.value + "Card reset error\n";
+				                return;
+			                }
+
+			                msg.value = msg.value + "Card reset ok, info: \n" + data + "\n";
+			
+                            //----------------------------------------------- Card apdu test
+                            obj.fcpuCommandlink(icdev,5,cmd,7,60).then((rData) => {
+			                    var rel = rData.RePara_Int;
+			                    var data = rData.RePara_Str;
+			                    if(rel != 0)
+			                    {
+				                    msg.value = msg.value + "Card apdu test error\n";
+				                    return;
+			                    }
+
+			                    msg.value = msg.value + "Card apdu test ok, info: \n" + data + "\n";
+
+			                    // ---------------------------------------- Select Main App
+                                obj.FWCosSelecteApp(icdev).then((rData) => {
+		                            var iRet = rData.RePara_Int;
+									if(iRet == 0)
+									{
+										msg.value = msg.value + "FWCosSelecteApp ok!\n";
+
+										// -- Create a Key-file
+										obj.FWCosCreateKeyFile(icdev, 0, 1, 64, 0).then((rData) => {
+											var iRet = rData.RePara_Int;
+											if(iRet == 0)
+											{
+												msg.value = msg.value + "FWCosCreateKeyFile ok!\n";
+
+
+												// -- Setup So-Key
+												obj.FWCosAddKey(icdev, 2, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+													var iRet= rData.RePara_Int;
+													if(iRet == 0)
+													{
+														msg.value = msg.value + "FWCosAddKey[SO_KEY] ok!\n";
+
+														// -- Setup FileProtect-Key
+														obj.FWCosAddKey(icdev, 1, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+															var iRet= rData.RePara_Int;
+															if(iRet == 0)
+															{
+																msg.value = msg.value + "FWCosAddKey[FILEPRO_KEY] ok!\n";
+																
+																// -- Setup UserPin-Key
+																obj.FWCosAddKey(icdev, 3, "123456").then((rData) => {
+																	var iRet= rData.RePara_Int;
+																	if(iRet == 0)
+																	{
+																		msg.value = msg.value + "FWCosAddKey[USER_PIN] ok!\n";
+																		// -- Create a binary file
+																		obj.FWCosCreateBinaryFile(icdev, 0, 2, 512, 1, 0, 1, 0).then((rData) => {
+																			var iRet= rData.RePara_Int;
+
+																			if(iRet == 0)
+																			{
+																				msg.value = msg.value + "Create a binary file ok!\n";
+
+																				// -- Create stable record file
+																				obj.FWCosCreateRecordFile(icdev, 0, 0, 3, 2, 8, 0, 0, 0, 0).then((rData) => {
+																					var iRet= rData.RePara_Int;
+																					if(iRet == 0)
+																					{
+																						msg.value = msg.value + "Create a record(stable length) file ok!\n";
+																						// -- Create cycle record file
+																						obj.FWCosCreateRecordFile(icdev, 0, 1, 4, 2, 8, 0, 0, 0, 0).then((rData) => {
+																							var iRet= rData.RePara_Int;
+																							if(iRet == 0)
+																							{
+																								msg.value = msg.value + "Create a record(cycle length) file ok!\n";
+																								// -- Create vary record file
+																								obj.FWCosCreateRecordFile(icdev, 0, 2, 5, 2, 8, 0, 0, 0, 0).then((rData) => {
+																									var iRet= rData.RePara_Int;
+																									if(iRet == 0)
+																									{
+																										msg.value = msg.value + "Create a record(vary length) file ok!\n";
+																										 // -- Verify user pin
+																										obj.FWCosVerifyKey(icdev, "123456",3).then((rData) => {
+																											var iRet= rData.RePara_Int;
+																											if(iRet == 0)
+																											{
+																												msg.value = msg.value + "Verify User-pin ok!\n";
+																												//-- select binary file
+																												obj.FWCosSelectDirectory(icdev, 2).then((rData) => {
+																													var iRet = rData.RePara_Int;
+
+																													if(iRet == 0)
+																													{
+																														msg.value = msg.value + "Select binary file ok!\n";
+																														// -- Write binary file
+																														obj.FWCosUpdateBinaryFile(icdev, 2, 0, "11223344556677889900AABBCCDDEEFF",1,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																															var iRet = rData.RePara_Int;
+																															if(iRet == 0)
+																															{
+																																msg.value = msg.value + "Write binary file ok!\n";
+																																// -- Read binary file
+																																obj.FWCosReadBinaryFile(icdev, 2, 0, 16,1,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																	var iRet = rData.RePara_Int;
+																																	var data;
+
+																																	if(iRet == 0)
+																																	{
+																																		data = rData.RePara_Str;
+
+																																		msg.value = msg.value + "Read binary file ok!\n";
+																																		msg.value = msg.value + "Data:"+data+"\n";
+																																		// - Write  stable record file
+																																		obj.FWCosUpdateRecord(icdev, 0, 3, 1, "1122334455667788",0,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																			var iRet = rData.RePara_Int;
+																																			if(iRet == 0)
+																																			{
+																																				msg.value = msg.value + "Write record(stable) file ok!\n";
+																																				// -  Read stable record file
+																																				obj.FWCosReadRecord(icdev,0, 3, 1,8).then((rData) => {
+																																					var iRet = rData.RePara_Int;
+																																					if(iRet == 0)
+																																					{
+																																						data = rData.RePara_Str;
+
+																																						msg.value = msg.value + "Read record(stable) file ok!\n";
+																																						msg.value = msg.value + "Data:"+data+"\n";
+																																						// - Write cycle record file
+																																						obj.FWCosAppendRecord(icdev, 4, "1122334455667788",0,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+
+																																							var iRet = rData.RePara_Int;
+																																							if(iRet == 0)
+																																							{
+																																								msg.value = msg.value + "Write record(cycle) file ok!\n";
+																																								// -  Read cycle record file
+																																								obj.FWCosReadRecord(icdev,1, 4, 1, 8).then((rData) => {
+																																									var iRet = rData.RePara_Int;
+																																									if(iRet == 0)
+																																									{
+																																										data = rData.RePara_Str;
+
+																																										msg.value = msg.value + "Read record(cycle) file ok!\n";
+																																										msg.value = msg.value + "Data:"+data+"\n";
+																																										// - Write vary record file
+																																										obj.FWCosUpdateRecord(icdev, 1, 5, 1, "112233445566",0,"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																											var iRet = rData.RePara_Int;
+																																											if(iRet == 0)
+																																											{
+																																												msg.value = msg.value + "Write record(vary) file ok!\n";
+																																												
+																																												
+																																												// -- Create ADF
+																																												obj.FWCosCreateADF(icdev, 0xDF01, 0, 0,"TestDir").then((rData) => {
+																																													var iRet = rData.RePara_Int;
+
+																																													if(iRet == 0)
+																																													{
+																																														msg.value = msg.value + "Create ADF ok!\n";
+																																														
+																																														obj.FWCosAddKey(icdev, 2, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																															var iRet = rData.RePara_Int;
+																																															if(iRet == 0)
+																																															{
+																																																msg.value = msg.value + "Add So-key in ADF ok!\n";
+																																																
+																																																obj.FWCosAddKey(icdev, 3, "123456").then((rData) => {
+																																																	var iRet = rData.RePara_Int;
+																																																	if(iRet == 0)
+																																																	{
+																																																		msg.value = msg.value + "Add User-PIN in ADF ok!\n";
+																																																		// -- Setup Purchase-Key in ADF
+																																																		obj.FWCosAddKey(icdev, 7, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																																			var iRet = rData.RePara_Int;
+																																																			if(iRet == 0)
+																																																			{
+																																																				msg.value = msg.value + "Add Purchase-Key in ADF ok!\n";
+			   
+																																																				 // -- Setup Credit-Key in ADF
+																																																				obj.FWCosAddKey(icdev, 5, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																																					var iRet = rData.RePara_Int;
+																																																					if(iRet == 0)
+																																																					{
+																																																						msg.value = msg.value + "Add Credit-Key in ADF ok!\n";
+		   
+																																																						// -- Verify User-PIN in ADF
+																																																						obj.FWCosVerifyKey(icdev, "123456", 3).then((rData) => {
+																																																							if(iRet == 0)
+																																																							{
+																																																								msg.value = msg.value + "Verify ADF User-pin ok!\n";
+																																																								// -- Recharge 
+																																																								obj.FWCosCredit(icdev, 0, 200, "000000000001", "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																																									var iRet= rData.RePara_Int;
+
+																																																									if(iRet == 0)
+																																																									{
+																																																										msg.value = msg.value + "Recharge  ok!\n";
+																																																										// -- Charge 
+																																																										obj.FWCosPurchase(icdev, 1, 50, "000000000001", "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF").then((rData) => {
+																																																											var iRet= rData.RePara_Int;
+																																																											if(iRet == 0)
+																																																											{
+																																																												msg.value = msg.value + "Charge  ok!\n";
+																																																												// -- Query balance 
+																																																												obj.FWCosGetBalance(icdev).then((rData) => {
+																																																													var iRet= rData.RePara_Int;
+																																																													var data;
+																																																													if(iRet == 0)
+																																																													{
+																																																														data = rData.RePara_Str;
+																																																														msg.value = msg.value + "Balance: "+ data + "\n";
+																																																														
+																																																														obj.FWCosSelecteApp(icdev).then((rData) => {
+																																																															var iRet= rData.RePara_Int;
+																																																															if(iRet == 0)
+																																																															{
+																																																																msg.value = msg.value + "FWCosSelecteApp ok!\n";
+
+																																																																// -- Verify So-key
+																																																																obj.FWCosVerifyKey(icdev, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 2).then((rData) => {
+																																																																	var iRet= rData.RePara_Int;
+																																																																	if(iRet == 0)
+																																																																	{
+																																																																		msg.value = msg.value + "Verify main so-key ok!\n";
+																																																																		// -- delete this app
+
+																																																																		obj.FWCosDeleteFileSys(icdev).then((rData) => {
+																																																																			var iRet= rData.RePara_Int;
+																																																																			if(iRet == 0)
+																																																																			{
+																																																																				msg.value = msg.value + "Delete this app  ok!\n";
+												
+
+																																																																				obj.exit(icdev).then((rData) => {
+																																																																					msg.value =msg.value+"reader closed\n"
+																																																																				}).catch((error) => {
+																																																																					console.log('exit catch fail->' + error);
+																																																																				});
+																																																																			}
+																																																																			else
+																																																																			{
+																																																																				msg.value = msg.value + "Delete this app  error!\n";
+																																																																			}
+																																																																		}).catch((error) => {
+																																																																			console.log('FWCosDeleteFileSys catch fail->' + error);
+																																																																		});                          }
+																																																																	else
+																																																																	{
+																																																																		msg.value = msg.value + "Verify main so-key error!\n";
+																																																																	}
+																																																																}).catch((error) => {
+																																																																	console.log('FWCosVerifyKey catch fail->' + error);
+																																																																});
+																																																															}
+																																																															else
+																																																															{
+																																																																msg.value = msg.value + "FWCosSelecteApp error!\n";
+																																																															}
+																																																														}).catch((error) => {
+																																																															console.log('FWCosSelecteApp catch fail->' + error);
+																																																														});
+																																																													}
+																																																													else
+																																																														msg.value = msg.value + "Get balance failed \n";
+																																																												}).catch((error) => {
+																																																													console.log('FWCosGetBalance catch fail->' + error);
+																																																												});
+																																																											}
+																																																											else
+																																																											{
+																																																												msg.value = msg.value + "Charge  error!\n";
+																																																											}
+																																																										}).catch((error) => {
+																																																											console.log('FWCosPurchase catch fail->' + error);
+																																																										});
+																																																									}
+																																																									else
+																																																									{
+																																																										msg.value = msg.value + "Recharge  error!\n";
+																																																									}
+																																																								}).catch((error) => {
+																																																									console.log('FWCosCredit catch fail->' + error);
+																																																								});
+																																																							}
+																																																							else
+																																																							{
+																																																								msg.value = msg.value + "Verify ADF User-pin error!\n";
+																																																							}
+																																																						}).catch((error) => {
+																																																							console.log('FWCosVerifyKey catch fail->' + error);
+																																																						});
+																																																					}
+																																																					else
+																																																					{
+																																																						msg.value = msg.value + "Add Credit-Key in ADF error!\n";
+																																																					}
+																																																				}).catch((error) => {
+																																																					console.log('FWCosAddKey catch fail->' + error);
+																																																				});
+																																																			}
+																																																			else
+																																																			{
+																																																				msg.value = msg.value + "Add Purchase-Key in ADF error!\n";
+																																																			}
+																																																		}).catch((error) => {
+																																																			console.log('FWCosAddKey catch fail->' + error);
+																																																		});
+																																																	}
+																																																	else
+																																																	{
+																																																		msg.value = msg.value + "Add User-PIN in ADF error!\n";
+																																																	}
+																																																}).catch((error) => {
+																																																	console.log('FWCosAddKey catch fail->' + error);
+																																																});
+																																															}
+																																															else
+																																															{
+																																																msg.value = msg.value + "Add So-key in ADF error!\n";
+																																															}
+																																														}).catch((error) => {
+																																															console.log('FWCosAddKey catch fail->' + error);
+																																														});
+																																													}
+																																													else
+																																													{
+																																														msg.value = msg.value + "Create ADF error!\n";
+																																													}
+																																												}).catch((error) => {
+																																													console.log('FWCosCreateADF catch fail->' + error);
+																																												});
+																																											}
+																																											else
+																																											{
+																																												msg.value = msg.value + "Write record(vary) file error!\n";
+																																											}
+																																										}).catch((error) => {
+																																											console.log('FWCosUpdateRecord catch fail->' + error);
+																																										});
+																																									}
+																																									else
+																																									{
+																																										msg.value = msg.value + "Read record(cycle) file error!\n";
+																																									}
+																																								}).catch((error) => {
+																																									console.log('FWCosReadRecord catch fail->' + error);
+																																								});
+																																							}
+																																							else
+																																							{
+																																								msg.value = msg.value + "Write record(cycle) file error!\n";
+																																							}
+
+
+
+																																						}).catch((error) => {
+																																							console.log('FWCosAppendRecord catch fail->' + error);
+																																						});
+																																					}
+																																					else
+																																					{
+																																						msg.value = msg.value + "Read record(stable) file error!\n";
+																																					}
+																																				}).catch((error) => {
+																																					console.log('FWCosReadRecord catch fail->' + error);
+																																				});
+																																			}
+																																			else
+																																			{
+																																				msg.value = msg.value + "Write record(stable) file error!\n";
+																																			}
+																																		}).catch((error) => {
+																																			console.log('FWCosUpdateRecord catch fail->' + error);
+																																		});
+																																	}
+																																	else
+																																	{
+																																		msg.value = msg.value + "Read binary file error!\n";
+																																	}
+																																}).catch((error) => {
+																																	console.log('FWCosReadBinaryFile catch fail->' + error);
+																																});
+																															}
+																															else
+																															{
+																																msg.value = msg.value + "Write binary file error!\n";
+																															}
+																														}).catch((error) => {
+																															console.log('FWCosUpdateBinaryFile catch fail->' + error);
+																														});
+																													}
+																													else
+																													{
+																														msg.value = msg.value + "Select binary file error!\n";
+																													}
+																												}).catch((error) => {
+																													console.log('FWCosSelectDirectory catch fail->' + error);
+																												});
+																											}
+																											else
+																											{
+																												msg.value = msg.value + "Verify User-pin error!\n";
+																											}
+																										}).catch((error) => {
+																											console.log('FWCosVerifyKey catch fail->' + error);
+																										});
+																									}
+																									else
+																									{
+																											msg.value = msg.value + "Create a record(vary length) file error!\n";
+																									}
+																								}).catch((error) => {
+																									console.log('FWCosCreateRecordFile catch fail->' + error);
+																								});
+																							}
+																							else
+																							{
+																								msg.value = msg.value + "Create a record(cycle length) file error!\n";
+																							}
+																						}).catch((error) => {
+																							console.log('FWCosCreateRecordFile catch fail->' + error);
+																						});
+																					}
+																					else
+																					{
+																						msg.value = msg.value + "Create a binary file error!\n";
+																					}
+																				}).catch((error) => {
+																					console.log('FWCosCreateRecordFile catch fail->' + error);
+																				});
+
+																			}
+																			else
+																			{
+																				msg.value = msg.value + "Create a binary file error!\n";
+																			}
+																		}).catch((error) => {
+																			console.log('FWCosCreateBinaryFile catch fail->' + error);
+																		});
+																	}
+																	else
+																	{
+																		msg.value = msg.value + "FWCosAddKey[USER_PIN] error!\n";
+																	}
+																}).catch((error) => {
+																	console.log('FWCosAddKey catch fail->' + error);
+																});
+															}
+															else
+															{
+																msg.value = msg.value + "FWCosAddKey[FILEPRO_KEY] error!\n";
+															}
+														}).catch((error) => {
+															console.log('FWCosAddKey catch fail->' + error);
+														});
+
+													}
+													else
+													{
+														msg.value = msg.value + "FWCosAddKey[SO_KEY] error!\n";
+													}
+
+												}).catch((error) => {
+													console.log('FWCosAddKey catch fail->' + error);
+												});
+											}
+											else
+											{
+												msg.value = msg.value + "FWCosCreateKeyFile error!\n";
+											}
+										}).catch((error) => {
+											console.log('FWCosCreateKeyFile catch fail->' + error);
+										});
+									}
+									else
+									{
+										msg.value = msg.value + "FWCosSelecteApp error!\n";
+									}
+                                }).catch((error) => {
+                                    console.log('FWCosSelecteApp catch fail->' + error);
+                                });
+
+                            }).catch((error) => {
+                                console.log('fcpuCommandlink catch fail->' + error);
+                            });
+                        }).catch((error) => {
+                            console.log('fcpureset catch fail->' + error);
+                        });
+
+                    }).catch((error) => {
+                        console.log('findcardStr catch fail->' + error);
+                    });
+                }).catch((error) => {
+                    console.log('reset catch fail->' + error);
+                });
+            }
+            else
+            {
+				msg.value = "Link reader error\n";
+				isComOpen=false;           //Set reader link failed status
+            }
+
+        }).catch((error) => {
+            console.log('initialcom catch fail->' + error);
+        });
+		
+		
+
+    }catch(e){alert(e.message);}
+}
+
+
+
+
+</script>
+ 
+<br>
+
+</center>
+ 
+</BODY>
+</HTML>
