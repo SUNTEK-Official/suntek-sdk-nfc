@@ -38,38 +38,6 @@
 
 ## Hardware Showcase & Compatibility
 
-<table>
-  <tr>
-    <td align="center" width="33%">
-      <a href="https://www.suntekai.com/products/ticket-validator-st5/">
-        <img src="./assets/prod-st5.webp" alt="ST5" height="140">
-      </a>
-      <br>
-      <strong>ST5</strong><br>
-      <sub>Integrated Validator NFC</sub><br>
-      <a href="https://www.suntekai.com/products/ticket-validator-st5/">Official Product Page</a>
-    </td>
-    <td align="center" width="33%">
-      <a href="https://www.suntekai.com/products/suntek-facial-recognition-biometric-machine-fa8/">
-        <img src="./assets/prod-fa8.webp" alt="FA8" height="140">
-      </a>
-      <br>
-      <strong>FA8</strong><br>
-      <sub>Access Terminal NFC Reader</sub><br>
-      <a href="https://www.suntekai.com/products/suntek-facial-recognition-biometric-machine-fa8/">Official Product Page</a>
-    </td>
-    <td align="center" width="33%">
-      <a href="https://www.suntekai.com/products/barcode-reader-r10/">
-        <img src="./assets/prod-r10.png" alt="R10" height="140">
-      </a>
-      <br>
-      <strong>R10</strong><br>
-      <sub>Smart Card & QR Reader</sub><br>
-      <a href="https://www.suntekai.com/products/barcode-reader-r10/">Official Product Page</a>
-    </td>
-  </tr>
-</table>
-
 | Product Model | Chipset / Board | OS Versions | Build Identifier | Status |
 | :--- | :--- | :--- | :--- | :---: |
 | **SUNTEK NFC Modules** | USB HID / CCID / Serial / BLE | Android, Linux, Windows, MCU, Web | API V1.21 | Supported |
